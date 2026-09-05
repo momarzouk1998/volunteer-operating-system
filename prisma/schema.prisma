@@ -1,10 +1,11 @@
-datasource db {
+﻿datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 enum Role {
@@ -85,7 +86,7 @@ model User {
   referredBy      String?          // الشخص المرشح
   
   status          VolunteerStatus  @default(ACTIVE)
-  level           String?          @default("متطوع جديد") // متطوع جديد، ملتزم، متميز، قائد فريق، قائد قافلة، قائد محافظة
+  level           String?          @default("متطوع جديد")
   teamName        String?          @default("فريق الإغاثة الميدانية")
   teamLeader      String?
   
@@ -185,7 +186,7 @@ model Convoy {
   id            String          @id @default(cuid())
   code          String          @unique // CNV-XXXXX
   title         String
-  type          String          // قافلة إغاثية، طبية، إطعام، أسقف، مياه، معارض
+  type          String
   governorate   String
   location      String
   startDate     DateTime
@@ -212,7 +213,7 @@ model TaskAssignment {
   taskType    String
   role        String
   supervisor  String?
-  status      String   @default("قيد التنفيذ") // قيد التنفيذ، مكتملة، معتذر
+  status      String   @default("قيد التنفيذ")
   result      String?
   notes       String?
   createdAt   DateTime @default(now())
@@ -244,8 +245,8 @@ model PointsLedger {
   id          String   @id @default(cuid())
   volunteerId String
   volunteer   User     @relation(fields: [volunteerId], references: [id], onDelete: Cascade)
-  points      Int      // موجب للإضافة وسالب للخصم
-  type        String   // ساعات تطوع، حضور قافلة، تقييم، تكريم، قيادة، تصحيح
+  points      Int
+  type        String
   reason      String
   createdBy   String?
   createdAt   DateTime @default(now())
@@ -259,10 +260,10 @@ model Evaluation {
   evaluator        User?    @relation("EvaluatorUser", fields: [evaluatorId], references: [id])
   evaluatorName    String?
   evaluationDate   DateTime @default(now())
-  commitmentScore  Int      @default(5) // 1-5
-  cooperationScore Int      @default(5) // 1-5
-  initiativeScore  Int      @default(5) // 1-5
-  behaviorScore    Int      @default(5) // 1-5
+  commitmentScore  Int      @default(5)
+  cooperationScore Int      @default(5)
+  initiativeScore  Int      @default(5)
+  behaviorScore    Int      @default(5)
   overallScore     Float    @default(5.0)
   recommendation   String?
   notes            String?
@@ -274,18 +275,18 @@ model RetentionRecord {
   volunteerId    String
   volunteer      User      @relation("RetentionVolunteer", fields: [volunteerId], references: [id], onDelete: Cascade)
   lastActiveDate DateTime?
-  reason         String?   // سبب الابتعاد
-  whatMotivated  String?   // ما كان يحفزه
-  whatEncourages String?   // ما يشجعه على العودة
+  reason         String?
+  whatMotivated  String?
+  whatEncourages String?
   preferredField String?
   availableTime  String?
   wantsToReturn  String?   @default("نعم يرغب")
   lastContact    DateTime? @default(now())
-  contactOutcome String?   // تم التواصل هاتفياً ورحب بالعودة
-  nextAction     String?   // إرسال تكليف القافلة القادمة
+  contactOutcome String?
+  nextAction     String?
   assignedToId   String?
   assignedTo     User?     @relation("RetentionAssignee", fields: [assignedToId], references: [id])
-  status         String    @default("قيد المتابعة") // قيد المتابعة، تم الاستعادة، مغلق
+  status         String    @default("قيد المتابعة")
   notes          String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -294,7 +295,7 @@ model RetentionRecord {
 model TrainingCourse {
   id                  String               @id @default(cuid())
   title               String
-  type                String               // تأهيل متطوعين، إسعافات، قيادة، توثيق
+  type                String
   trainer             String
   date                DateTime
   hours               Int                  @default(4)
@@ -325,10 +326,10 @@ model TrainingAttendance {
 
 model Reward {
   id          String   @id @default(cuid())
-  code        String   @unique // CERT-KAS-2026-XXXXX
+  code        String   @unique
   volunteerId String
   volunteer   User     @relation("RewardRecipient", fields: [volunteerId], references: [id], onDelete: Cascade)
-  type        String   // شهادة تقدير، درع التميز، متطوع الشهر، تكريم سنوي
+  type        String
   reason      String
   points      Int      @default(0)
   issuedById  String?
@@ -343,8 +344,8 @@ model AuditLog {
   userId    String?
   user      User?    @relation(fields: [userId], references: [id])
   userName  String?
-  action    String   // CREATE, UPDATE, DELETE, STATUS_CHANGE, POINTS_ADJUST, ATTENDANCE_APPROVE
-  entity    String   // Volunteer, Application, Convoy, Attendance, Reward, Setting
+  action    String
+  entity    String
   entityId  String?
   details   String?
   ipAddress String?
@@ -355,7 +356,7 @@ model SystemSetting {
   id          String   @id @default(cuid())
   key         String   @unique
   value       String
-  category    String   @default("GENERAL") // GENERAL, GAMIFICATION, GOVERNORATES, TEAMS
+  category    String   @default("GENERAL")
   description String?
   updatedAt   DateTime @updatedAt
 }
