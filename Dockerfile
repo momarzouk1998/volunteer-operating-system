@@ -1,5 +1,5 @@
-﻿FROM node:20-alpine AS base
-RUN apk add --no-cache libc6-compat openssl
+FROM node:20-slim AS base
+RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 
 FROM base AS deps
 WORKDIR /app
@@ -42,3 +42,4 @@ USER nextjs
 EXPOSE 3060
 
 CMD ["node", "server.js"]
+
