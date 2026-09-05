@@ -1,0 +1,361 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  SUPER_ADMIN      // المدير العام
+  VOLUNTEER_MANAGER // مدير إدارة المتطوعين
+  GOVERNORATE_LEAD  // مسؤول المحافظة
+  TEAM_LEADER       // قائد الفريق أو القافلة
+  VOLUNTEER         // المتطوع
+}
+
+enum VolunteerStatus {
+  ACTIVE        // نشط
+  INACTIVE      // غير نشط
+  DISTINGUISHED // متميز
+  DISCONTINUED  // منقطع
+  EXCLUDED      // مستبعد
+  PENDING       // قيد الانتظار
+}
+
+enum ApplicationStatus {
+  NEW           // طلب جديد
+  UNDER_REVIEW  // قيد المراجعة
+  INTERVIEW     // موعد مقابلة
+  ACCEPTED      // مقبول
+  REJECTED      // مرفوض
+}
+
+enum ConvoyStatus {
+  PLANNED     // مخطط
+  IN_PROGRESS // قيد التنفيذ
+  COMPLETED   // مكتمل
+  CANCELLED   // ملغى
+  POSTPONED   // مؤجل
+}
+
+enum AttendanceStatus {
+  PRESENT // حاضر
+  ABSENT  // غائب
+  EXCUSED // معتذر
+  LATE    // متأخر
+}
+
+model User {
+  id              String           @id @default(cuid())
+  phone           String           @unique // رقم الهاتف الفريد لتسجيل الدخول
+  passwordHash    String
+  name            String
+  role            Role             @default(VOLUNTEER)
+  volunteerCode   String?          @unique // KAS-00001
+  nationalId      String?          @unique // 14 رقم
+  dob             DateTime?
+  nationality     String?          @default("مصري")
+  governorate     String?          @default("الجيزة")
+  city            String?
+  address         String?
+  whatsapp        String?
+  email           String?
+  qualification   String?          // المؤهل الدراسي
+  major           String?          // التخصص
+  jobStatus       String?          // خريج ويعمل / طالب
+  workplace       String?          // جهة العمل / الدراسة
+  jobTitle        String?          // المهنة
+  experience      String?          // الخبرات
+  skills          String?          // المهارات
+  preferredFields String?          // المجالات المفضلة (إغاثة، قوافل، إطعام...)
+  volunteerNature String?          // ميداني / مكتبي / هجين
+  availableDays   String?          // الجمعة، السبت...
+  availableShift  String?          // صباحية / مسائية
+  weeklyHours     Int?             @default(5)
+  canTravel       Boolean?         @default(true)
+  interests       String?
+  volunteerGoals  String?
+  leadershipExp   String?
+  wantsLeadership Boolean?         @default(false)
+  emergencyContact String?         // بيانات الطوارئ
+  specialNeeds    String?          // احتياجات خاصة أو حساسية
+  referralSource  String?          // مصدر التعرف
+  referredBy      String?          // الشخص المرشح
+  
+  status          VolunteerStatus  @default(ACTIVE)
+  level           String?          @default("متطوع جديد") // متطوع جديد، ملتزم، متميز، قائد فريق، قائد قافلة، قائد محافظة
+  teamName        String?          @default("فريق الإغاثة الميدانية")
+  teamLeader      String?
+  
+  totalHours      Float            @default(0)
+  totalPoints     Int              @default(0)
+  rating          Float            @default(5.0)
+  convoysCount    Int              @default(0)
+  lastActiveDate  DateTime?        @default(now())
+  lastContactDate DateTime?
+  avatarUrl       String?
+  notes           String?
+  
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  // العلاقات
+  taskAssignments     TaskAssignment[]
+  attendances         AttendanceRecord[]
+  pointsLedger        PointsLedger[]
+  evaluationsReceived Evaluation[]       @relation("EvaluatedVolunteer")
+  evaluationsGiven    Evaluation[]       @relation("EvaluatorUser")
+  retentionRecords    RetentionRecord[]  @relation("RetentionVolunteer")
+  retentionAssigned   RetentionRecord[]  @relation("RetentionAssignee")
+  trainingAttendances TrainingAttendance[]
+  rewards             Reward[]           @relation("RewardRecipient")
+  rewardsIssued       Reward[]           @relation("RewardIssuer")
+  auditLogs           AuditLog[]
+  interviewsConducted Interview[]
+}
+
+model Application {
+  id              String            @id @default(cuid())
+  code            String            @unique // APP-2026-XXXXX
+  fullName        String
+  nationalId      String?
+  phone           String
+  whatsapp        String?
+  governorate     String
+  city            String?
+  qualification   String?
+  major           String?
+  skills          String?
+  preferredFields String?
+  source          String?           @default("الموقع الإلكتروني")
+  status          ApplicationStatus @default(NEW)
+  interviewDate   DateTime?
+  decision        String?           // مقبول / مرفوض / قائمة انتظار
+  reviewerName    String?
+  volunteerCode   String?
+  notes           String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  
+  interview       Interview?
+}
+
+model Interview {
+  id               String      @id @default(cuid())
+  applicationId    String      @unique
+  application      Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  interviewerId    String?
+  interviewer      User?       @relation(fields: [interviewerId], references: [id])
+  interviewDate    DateTime    @default(now())
+  
+  commitmentScore  Int         @default(20) // من 20
+  teamworkScore    Int         @default(20) // من 20
+  beneficiaryScore Int         @default(20) // من 20
+  skillsScore      Int         @default(20) // من 20
+  leadershipScore  Int         @default(20) // من 20
+  totalScore       Int         @default(100) // المجموع من 100
+  
+  recommendation   String      // مقبول / مرفوض / تدريب إضافي
+  notes            String?
+  createdAt        DateTime    @default(now())
+}
+
+model Team {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  governorate String
+  leaderName  String?
+  deputyName  String?
+  description String?
+  createdAt   DateTime @default(now())
+}
+
+model Governorate {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  leaderName  String?
+  deputyName  String?
+  targetHours Int      @default(1000)
+  createdAt   DateTime @default(now())
+}
+
+model Convoy {
+  id            String          @id @default(cuid())
+  code          String          @unique // CNV-XXXXX
+  title         String
+  type          String          // قافلة إغاثية، طبية، إطعام، أسقف، مياه، معارض
+  governorate   String
+  location      String
+  startDate     DateTime
+  endDate       DateTime?
+  supervisor    String
+  requiredCount Int             @default(20)
+  confirmedCount Int            @default(0)
+  status        ConvoyStatus    @default(PLANNED)
+  description   String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  tasks         TaskAssignment[]
+  attendances   AttendanceRecord[]
+}
+
+model TaskAssignment {
+  id          String   @id @default(cuid())
+  code        String   @unique // TSK-XXXXX
+  convoyId    String
+  convoy      Convoy   @relation(fields: [convoyId], references: [id], onDelete: Cascade)
+  volunteerId String
+  volunteer   User     @relation(fields: [volunteerId], references: [id], onDelete: Cascade)
+  taskType    String
+  role        String
+  supervisor  String?
+  status      String   @default("قيد التنفيذ") // قيد التنفيذ، مكتملة، معتذر
+  result      String?
+  notes       String?
+  createdAt   DateTime @default(now())
+}
+
+model AttendanceRecord {
+  id          String           @id @default(cuid())
+  code        String           @unique // ATT-XXXXX
+  volunteerId String
+  volunteer   User             @relation(fields: [volunteerId], references: [id], onDelete: Cascade)
+  convoyId    String?
+  convoy      Convoy?          @relation(fields: [convoyId], references: [id])
+  activityName String
+  governorate String?
+  date        DateTime         @default(now())
+  status      AttendanceStatus @default(PRESENT)
+  hours       Float            @default(0)
+  points      Int              @default(0)
+  approved    Boolean          @default(false)
+  approvedBy  String?
+  approvedAt  DateTime?
+  notes       String?
+  createdAt   DateTime         @default(now())
+
+  @@unique([volunteerId, convoyId, date])
+}
+
+model PointsLedger {
+  id          String   @id @default(cuid())
+  volunteerId String
+  volunteer   User     @relation(fields: [volunteerId], references: [id], onDelete: Cascade)
+  points      Int      // موجب للإضافة وسالب للخصم
+  type        String   // ساعات تطوع، حضور قافلة، تقييم، تكريم، قيادة، تصحيح
+  reason      String
+  createdBy   String?
+  createdAt   DateTime @default(now())
+}
+
+model Evaluation {
+  id               String   @id @default(cuid())
+  volunteerId      String
+  volunteer        User     @relation("EvaluatedVolunteer", fields: [volunteerId], references: [id], onDelete: Cascade)
+  evaluatorId      String?
+  evaluator        User?    @relation("EvaluatorUser", fields: [evaluatorId], references: [id])
+  evaluatorName    String?
+  evaluationDate   DateTime @default(now())
+  commitmentScore  Int      @default(5) // 1-5
+  cooperationScore Int      @default(5) // 1-5
+  initiativeScore  Int      @default(5) // 1-5
+  behaviorScore    Int      @default(5) // 1-5
+  overallScore     Float    @default(5.0)
+  recommendation   String?
+  notes            String?
+  createdAt        DateTime @default(now())
+}
+
+model RetentionRecord {
+  id             String    @id @default(cuid())
+  volunteerId    String
+  volunteer      User      @relation("RetentionVolunteer", fields: [volunteerId], references: [id], onDelete: Cascade)
+  lastActiveDate DateTime?
+  reason         String?   // سبب الابتعاد
+  whatMotivated  String?   // ما كان يحفزه
+  whatEncourages String?   // ما يشجعه على العودة
+  preferredField String?
+  availableTime  String?
+  wantsToReturn  String?   @default("نعم يرغب")
+  lastContact    DateTime? @default(now())
+  contactOutcome String?   // تم التواصل هاتفياً ورحب بالعودة
+  nextAction     String?   // إرسال تكليف القافلة القادمة
+  assignedToId   String?
+  assignedTo     User?     @relation("RetentionAssignee", fields: [assignedToId], references: [id])
+  status         String    @default("قيد المتابعة") // قيد المتابعة، تم الاستعادة، مغلق
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model TrainingCourse {
+  id                  String               @id @default(cuid())
+  title               String
+  type                String               // تأهيل متطوعين، إسعافات، قيادة، توثيق
+  trainer             String
+  date                DateTime
+  hours               Int                  @default(4)
+  isLeadershipPrereq  Boolean              @default(false)
+  location            String?
+  status              String               @default("متاح")
+  notes               String?
+  createdAt           DateTime             @default(now())
+  
+  attendances         TrainingAttendance[]
+}
+
+model TrainingAttendance {
+  id              String         @id @default(cuid())
+  courseId        String
+  course          TrainingCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  volunteerId     String
+  volunteer       User           @relation(fields: [volunteerId], references: [id], onDelete: Cascade)
+  attended        Boolean        @default(true)
+  score           Float?
+  passed          Boolean        @default(true)
+  certificateCode String?
+  notes           String?
+  createdAt       DateTime       @default(now())
+
+  @@unique([courseId, volunteerId])
+}
+
+model Reward {
+  id          String   @id @default(cuid())
+  code        String   @unique // CERT-KAS-2026-XXXXX
+  volunteerId String
+  volunteer   User     @relation("RewardRecipient", fields: [volunteerId], references: [id], onDelete: Cascade)
+  type        String   // شهادة تقدير، درع التميز، متطوع الشهر، تكريم سنوي
+  reason      String
+  points      Int      @default(0)
+  issuedById  String?
+  issuedBy    User?    @relation("RewardIssuer", fields: [issuedById], references: [id])
+  qrToken     String   @unique @default(cuid())
+  issuedAt    DateTime @default(now())
+  notes       String?
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  userName  String?
+  action    String   // CREATE, UPDATE, DELETE, STATUS_CHANGE, POINTS_ADJUST, ATTENDANCE_APPROVE
+  entity    String   // Volunteer, Application, Convoy, Attendance, Reward, Setting
+  entityId  String?
+  details   String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+}
+
+model SystemSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  category    String   @default("GENERAL") // GENERAL, GAMIFICATION, GOVERNORATES, TEAMS
+  description String?
+  updatedAt   DateTime @updatedAt
+}

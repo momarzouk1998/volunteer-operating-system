@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; color: #1e293b; margin: 0; padding: 20px; direction: rtl; }
+    .header { background: #0f2b48; color: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
+    .header h2 { margin: 0; font-size: 18px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+    .full-width { grid-column: span 2; }
+    .form-group { display: flex; flex-direction: column; }
+    label { font-size: 12px; font-weight: bold; margin-bottom: 5px; color: #334155; }
+    input, select, textarea { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-family: inherit; }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: #0f2b48; box-shadow: 0 0 0 2px rgba(15,43,72,0.1); }
+    .actions { margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px; }
+    button { padding: 10px 20px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; font-size: 13px; }
+    .btn-save { background-color: #0f2b48; color: white; }
+    .btn-save:hover { background-color: #1a365d; }
+    .btn-cancel { background-color: #e2e8f0; color: #475569; }
+    #msg { text-align: center; margin-top: 10px; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h2>🏛️ تسجيل متطوع جديد - جمعية خواطر أحلى شباب</h2>
+  </div>
+  <form id="addVolForm">
+    <div class="grid">
+      <div class="form-group full-width">
+        <label>الاسم رباعي *</label>
+        <input type="text" id="name" required placeholder="الاسم كما هو مدون ببطاقة الرقم القومي">
+      </div>
+      <div class="form-group">
+        <label>الرقم القومي (14 رقم) *</label>
+        <input type="text" id="nationalId" required maxlength="14" placeholder="29XXXXXXXXXXXX">
+      </div>
+      <div class="form-group">
+        <label>رقم الهاتف *</label>
+        <input type="tel" id="phone" required placeholder="01XXXXXXXXX">
+      </div>
+      <div class="form-group">
+        <label>المحافظة *</label>
+        <select id="gov" required><option value="">اختر المحافظة...</option></select>
+      </div>
+      <div class="form-group">
+        <label>المركز / المدينة</label>
+        <input type="text" id="city" placeholder="مثال: الدقي / ملوي / بنها">
+      </div>
+      <div class="form-group">
+        <label>الفريق / اللجنة المسكن عليها</label>
+        <select id="team"><option value="">اختر الفريق...</option></select>
+      </div>
+      <div class="form-group">
+        <label>المستوى التطوعي</label>
+        <select id="level"><option value="">اختر المستوى...</option></select>
+      </div>
+      <div class="form-group">
+        <label>المؤهل الدراسي والتخصص</label>
+        <input type="text" id="qualification" placeholder="بكالوريوس تجارة / هندسة / طب...">
+      </div>
+      <div class="form-group">
+        <label>المهنة الحالية</label>
+        <input type="text" id="job" placeholder="طالب / مهندس / محاسب...">
+      </div>
+      <div class="form-group full-width">
+        <label>المهارات والخبرات السابقة</label>
+        <input type="text" id="skills" placeholder="تنظيم، تصوير، قيادة فرق، إسعافات...">
+      </div>
+      <div class="form-group full-width">
+        <label>ملاحظات إضافية</label>
+        <textarea id="notes" rows="2" placeholder="أي تفاصيل أخرى أو مجالات يفضل العمل بها..."></textarea>
+      </div>
+    </div>
+    <div class="actions">
+      <button type="button" class="btn-cancel" onclick="google.script.host.close()">إلغاء</button>
+      <button type="submit" class="btn-save" id="btnSubmit">💾 حفظ وإصدار الكود</button>
+    </div>
+    <div id="msg"></div>
+  </form>
+
+  <script>
+    window.onload = function() {
+      google.script.run.withSuccessHandler(function(opts) {
+        const govSel = document.getElementById('gov');
+        opts.governorates.forEach(g => { if(g) govSel.add(new Option(g, g)); });
+        const teamSel = document.getElementById('team');
+        opts.teams.forEach(t => { if(t) teamSel.add(new Option(t, t)); });
+        const lvlSel = document.getElementById('level');
+        opts.levels.forEach(l => { if(l) lvlSel.add(new Option(l, l)); });
+      }).getSettingsOptions();
+    };
+
+    document.getElementById('addVolForm').onsubmit = function(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btnSubmit');
+      const msg = document.getElementById('msg');
+      btn.disabled = true;
+      msg.style.color = '#0f2b48';
+      msg.innerText = 'جاري تسجيل المتطوع وتوليد الكود...';
+
+      const payload = {
+        name: document.getElementById('name').value,
+        nationalId: document.getElementById('nationalId').value,
+        phone: document.getElementById('phone').value,
+        gov: document.getElementById('gov').value,
+        city: document.getElementById('city').value,
+        team: document.getElementById('team').value,
+        level: document.getElementById('level').value,
+        qualification: document.getElementById('qualification').value,
+        job: document.getElementById('job').value,
+        skills: document.getElementById('skills').value,
+        notes: document.getElementById('notes').value
+      };
+
+      google.script.run.withSuccessHandler(function(res) {
+        if(res.success) {
+          msg.style.color = '#059669';
+          msg.innerText = '✅ ' + res.message;
+          setTimeout(() => google.script.host.close(), 2500);
+        } else {
+          msg.style.color = '#dc2626';
+          msg.innerText = '❌ ' + res.message;
+          btn.disabled = false;
+        }
+      }).addVolunteer(payload);
+    };
+  </script>
+</body>
+</html>

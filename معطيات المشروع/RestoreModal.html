@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f8fafc; padding: 15px; direction: rtl; }
+    .form-group { margin-bottom: 10px; }
+    label { font-size: 12px; font-weight: bold; color: #334155; display: block; margin-bottom: 4px; }
+    input, select, textarea { width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; font-family: inherit; }
+    button { width: 100%; padding: 10px; background: #0f2b48; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+    #msg { margin-top: 10px; text-align: center; font-weight: bold; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <form id="restoreForm">
+    <div class="form-group">
+      <label>كود المتطوع *</label>
+      <input type="text" id="volCode" required placeholder="KAS-00005">
+    </div>
+    <div class="form-group">
+      <label>سبب الابتعاد السابق</label>
+      <input type="text" id="reason" placeholder="ظروف عمل / دراسة / سفر...">
+    </div>
+    <div class="form-group">
+      <label>ما يشجعه على العودة والمشاركة مجدداً</label>
+      <input type="text" id="returnIncentive" placeholder="مهام في عطلة نهاية الأسبوع / مشاريع محددة">
+    </div>
+    <div class="form-group">
+      <label>نتيجة التواصل الهاتفي</label>
+      <textarea id="result" rows="2" placeholder="تم التواصل ورحب بالانضمام للقافلة القادمة..."></textarea>
+    </div>
+    <div class="form-group">
+      <label>الإجراء الإداري التالي</label>
+      <input type="text" id="nextStep" placeholder="إرسال تكليف / إضافة في مجموعة الواتساب">
+    </div>
+    <button type="submit" id="btnSub">🔄 حفظ المتابعة</button>
+    <div id="msg"></div>
+  </form>
+
+  <script>
+    document.getElementById('restoreForm').onsubmit = function(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btnSub');
+      const msg = document.getElementById('msg');
+      btn.disabled = true;
+      msg.innerText = "جاري الحفظ...";
+
+      const payload = {
+        volCode: document.getElementById('volCode').value,
+        reason: document.getElementById('reason').value,
+        returnIncentive: document.getElementById('returnIncentive').value,
+        result: document.getElementById('result').value,
+        nextStep: document.getElementById('nextStep').value
+      };
+
+      google.script.run.withSuccessHandler(function(res) {
+        msg.innerText = res.message;
+        msg.style.color = res.success ? '#059669' : '#dc2626';
+        if(res.success) setTimeout(() => google.script.host.close(), 2000);
+        else btn.disabled = false;
+      }).restoreVolunteer(payload);
+    };
+  </script>
+</body>
+</html>

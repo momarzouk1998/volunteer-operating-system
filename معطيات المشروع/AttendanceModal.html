@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f8fafc; padding: 15px; direction: rtl; }
+    .form-group { margin-bottom: 12px; }
+    label { font-size: 12px; font-weight: bold; color: #334155; display: block; margin-bottom: 4px; }
+    input, select, textarea { width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; font-family: inherit; }
+    button { width: 100%; padding: 10px; background: #059669; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 14px; }
+    #msg { margin-top: 10px; text-align: center; font-weight: bold; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <form id="attForm">
+    <div class="form-group">
+      <label>كود المتطوع أو الرقم القومي *</label>
+      <input type="text" id="volCode" required placeholder="KAS-00001">
+    </div>
+    <div class="form-group">
+      <label>اسم المتطوع</label>
+      <input type="text" id="volName" placeholder="الاسم الرباعي">
+    </div>
+    <div class="form-group">
+      <label>اسم القافلة / الفعالية *</label>
+      <input type="text" id="activity" required placeholder="مثال: قافلة إغاثة مطروح">
+    </div>
+    <div class="form-group">
+      <label>المحافظة</label>
+      <input type="text" id="gov" placeholder="المحافظة المنفذ بها النشاط">
+    </div>
+    <div class="form-group">
+      <label>عدد ساعات التطوع الفعلية *</label>
+      <input type="number" id="hours" required min="1" step="0.5" value="6">
+    </div>
+    <div class="form-group">
+      <label>ملاحظات الأداء والانضباط</label>
+      <textarea id="notes" rows="2" placeholder="أي ملاحظات تشغيلية..."></textarea>
+    </div>
+    <button type="submit" id="btnSub">⚡ تسجيل الحضور واحتساب النقاط</button>
+    <div id="msg"></div>
+  </form>
+
+  <script>
+    document.getElementById('attForm').onsubmit = function(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btnSub');
+      const msg = document.getElementById('msg');
+      btn.disabled = true;
+      msg.innerText = "جاري التسجيل وتحديث الساعات...";
+
+      const payload = {
+        volCode: document.getElementById('volCode').value,
+        volName: document.getElementById('volName').value,
+        activity: document.getElementById('activity').value,
+        gov: document.getElementById('gov').value,
+        hours: document.getElementById('hours').value,
+        notes: document.getElementById('notes').value
+      };
+
+      google.script.run.withSuccessHandler(function(res) {
+        msg.innerText = res.message;
+        msg.style.color = res.success ? '#059669' : '#dc2626';
+        if(res.success) {
+          document.getElementById('volCode').value = '';
+          document.getElementById('volName').value = '';
+          btn.disabled = false;
+        } else {
+          btn.disabled = false;
+        }
+      }).recordAttendance(payload);
+    };
+  </script>
+</body>
+</html>

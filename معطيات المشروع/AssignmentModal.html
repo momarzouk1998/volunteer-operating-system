@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f8fafc; padding: 15px; direction: rtl; }
+    .form-group { margin-bottom: 12px; }
+    label { font-size: 12px; font-weight: bold; color: #334155; display: block; margin-bottom: 4px; }
+    input, select, textarea { width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; font-family: inherit; }
+    button { width: 100%; padding: 10px; background: #0f2b48; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+    #msg { margin-top: 10px; text-align: center; font-weight: bold; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <form id="assignForm">
+    <div class="form-group">
+      <label>كود المتطوع *</label>
+      <input type="text" id="volCode" required placeholder="مثال: KAS-00001">
+    </div>
+    <div class="form-group">
+      <label>اسم المتطوع</label>
+      <input type="text" id="volName" placeholder="الاسم الرباعي">
+    </div>
+    <div class="form-group">
+      <label>اسم القافلة / الفعالية *</label>
+      <input type="text" id="taskName" required placeholder="مثال: قافلة إغاثة مطروح / فرز كراتين الخير">
+    </div>
+    <div class="form-group">
+      <label>نوع المهمة</label>
+      <select id="taskType"><option value="">اختر نوع المهمة...</option></select>
+    </div>
+    <div class="form-group">
+      <label>المحافظة</label>
+      <select id="gov"><option value="">اختر المحافظة...</option></select>
+    </div>
+    <div class="form-group">
+      <label>الدور والمسؤولية الميدانية</label>
+      <input type="text" id="role" placeholder="مسؤول فرز / قائد فريق توزيع / توثيق">
+    </div>
+    <button type="submit" id="btnSub">💾 حفظ التكليف</button>
+    <div id="msg"></div>
+  </form>
+
+  <script>
+    window.onload = function() {
+      google.script.run.withSuccessHandler(function(opts) {
+        const tSel = document.getElementById('taskType');
+        opts.taskTypes.forEach(t => tSel.add(new Option(t, t)));
+        const gSel = document.getElementById('gov');
+        opts.governorates.forEach(g => gSel.add(new Option(g, g)));
+      }).getSettingsOptions();
+    };
+
+    document.getElementById('assignForm').onsubmit = function(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btnSub');
+      const msg = document.getElementById('msg');
+      btn.disabled = true;
+      msg.innerText = "جاري الحفظ...";
+
+      const payload = {
+        volCode: document.getElementById('volCode').value,
+        volName: document.getElementById('volName').value,
+        taskName: document.getElementById('taskName').value,
+        taskType: document.getElementById('taskType').value,
+        gov: document.getElementById('gov').value,
+        role: document.getElementById('role').value
+      };
+
+      google.script.run.withSuccessHandler(function(res) {
+        msg.innerText = res.message;
+        msg.style.color = res.success ? '#059669' : '#dc2626';
+        if(res.success) setTimeout(() => google.script.host.close(), 2000);
+        else btn.disabled = false;
+      }).addAssignment(payload);
+    };
+  </script>
+</body>
+</html>

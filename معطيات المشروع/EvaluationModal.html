@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f8fafc; padding: 15px; direction: rtl; }
+    .form-group { margin-bottom: 10px; }
+    label { font-size: 12px; font-weight: bold; color: #334155; display: block; margin-bottom: 4px; }
+    input, select, textarea { width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; font-family: inherit; }
+    .rate-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    button { width: 100%; padding: 10px; background: #d97706; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+    #msg { margin-top: 10px; text-align: center; font-weight: bold; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <form id="evalForm">
+    <div class="form-group">
+      <label>كود المتطوع *</label>
+      <input type="text" id="volCode" required placeholder="KAS-00001">
+    </div>
+    <div class="rate-grid">
+      <div class="form-group">
+        <label>الالتزام بالمواعيد (من 5)</label>
+        <select id="score1"><option value="5">5 - ممتاز</option><option value="4">4 - جيد جداً</option><option value="3">3 - جيد</option><option value="2">2 - مقبول</option><option value="1">1 - ضعيف</option></select>
+      </div>
+      <div class="form-group">
+        <label>العمل الجماعي (من 5)</label>
+        <select id="score2"><option value="5">5 - ممتاز</option><option value="4">4 - جيد جداً</option><option value="3">3 - جيد</option><option value="2">2 - مقبول</option><option value="1">1 - ضعيف</option></select>
+      </div>
+      <div class="form-group">
+        <label>روح المبادرة (من 5)</label>
+        <select id="score3"><option value="5">5 - ممتاز</option><option value="4">4 - جيد جداً</option><option value="3">3 - جيد</option><option value="2">2 - مقبول</option><option value="1">1 - ضعيف</option></select>
+      </div>
+      <div class="form-group">
+        <label>التعامل مع المستفيدين (من 5)</label>
+        <select id="score4"><option value="5">5 - ممتاز</option><option value="4">4 - جيد جداً</option><option value="3">3 - جيد</option><option value="2">2 - مقبول</option><option value="1">1 - ضعيف</option></select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>التوصيات الإدارية (ترقية / تكليف قيادي)</label>
+      <input type="text" id="recommendation" placeholder="يوصى بترقيته لقائد قافلة...">
+    </div>
+    <button type="submit" id="btnSub">⭐ حفظ التقييم</button>
+    <div id="msg"></div>
+  </form>
+
+  <script>
+    document.getElementById('evalForm').onsubmit = function(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btnSub');
+      const msg = document.getElementById('msg');
+      btn.disabled = true;
+      msg.innerText = "جاري الحفظ...";
+
+      const payload = {
+        volCode: document.getElementById('volCode').value,
+        commitment: document.getElementById('score1').value,
+        teamwork: document.getElementById('score2').value,
+        initiative: document.getElementById('score3').value,
+        beneficiaryDealing: document.getElementById('score4').value,
+        recommendation: document.getElementById('recommendation').value
+      };
+
+      google.script.run.withSuccessHandler(function(res) {
+        msg.innerText = res.message;
+        msg.style.color = res.success ? '#059669' : '#dc2626';
+        if(res.success) setTimeout(() => google.script.host.close(), 2000);
+        else btn.disabled = false;
+      }).evaluateVolunteer(payload);
+    };
+  </script>
+</body>
+</html>

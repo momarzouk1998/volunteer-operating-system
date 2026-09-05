@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; color: #1e293b; margin: 0; padding: 20px; direction: rtl; }
+    .search-box { display: flex; gap: 10px; margin-bottom: 15px; }
+    input { flex: 1; padding: 10px 15px; border: 2px solid #0f2b48; border-radius: 6px; font-size: 14px; }
+    button { padding: 10px 20px; background: #0f2b48; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+    table { width: 100%; border-collapse: collapse; background: white; border-radius: 6px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    th { background: #1e293b; color: white; padding: 10px; font-size: 12px; }
+    td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; font-size: 12px; text-align: center; }
+    tr:hover { background: #f1f5f9; }
+    .btn-profile { background: #2563eb; color: white; padding: 4px 8px; border-radius: 4px; border: none; cursor: pointer; font-size: 11px; }
+  </style>
+</head>
+<body>
+  <div class="search-box">
+    <input type="text" id="query" placeholder="ابحث باسم المتطوع، الكود، الهاتف، المحافظة، أو الفريق..." autofocus>
+    <button onclick="doSearch()">بحث سريع</button>
+  </div>
+  <div id="resultsArea">
+    <table id="resTable">
+      <thead>
+        <tr>
+          <th>الكود</th>
+          <th>الاسم</th>
+          <th>الهاتف</th>
+          <th>المحافظة</th>
+          <th>الفريق</th>
+          <th>الحالة</th>
+          <th>النقاط</th>
+          <th>الساعات</th>
+          <th>الإجراء</th>
+        </tr>
+      </thead>
+      <tbody id="resBody">
+        <tr><td colspan="9" style="padding: 20px; color: #64748b;">أدخل كلمة البحث واضغط Enter</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    document.getElementById('query').addEventListener('keyup', function(e) {
+      if (e.key === 'Enter') doSearch();
+    });
+
+    function doSearch() {
+      const q = document.getElementById('query').value.trim();
+      const tbody = document.getElementById('resBody');
+      tbody.innerHTML = '<tr><td colspan="9" style="padding: 20px;">جاري البحث في قاعدة البيانات...</td></tr>';
+
+      google.script.run.withSuccessHandler(function(results) {
+        if(results.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="9" style="padding: 20px; color: #dc2626;">لم يتم العثور على أي متطوع يطابق البحث</td></tr>';
+          return;
+        }
+        let html = '';
+        results.forEach(v => {
+          html += `<tr>
+            <td><b>${v.code}</b></td>
+            <td>${v.name}</td>
+            <td>${v.phone}</td>
+            <td>${v.gov}</td>
+            <td>${v.team}</td>
+            <td><span style="color:${v.status==='نشط'?'#059669':'#dc2626'}">${v.status}</span></td>
+            <td><b>${v.points}</b></td>
+            <td>${v.hours} س</td>
+            <td><button class="btn-profile" onclick="openProfile('${v.code}')">📁 الملف</button></td>
+          </tr>`;
+        });
+        tbody.innerHTML = html;
+      }).searchVolunteer(q);
+    }
+
+    function openProfile(code) {
+      google.script.run.openVolunteerProfileModal(code);
+    }
+  </script>
+</body>
+</html>
