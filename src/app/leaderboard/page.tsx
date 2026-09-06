@@ -7,8 +7,10 @@ import {
   Sparkles, ShieldCheck, ChevronLeft
 } from 'lucide-react';
 import { getRankBadge } from '@/lib/utils';
+import { useLists } from '@/lib/useLists';
 
 export default function LeaderboardPage() {
+  const { lists } = useLists();
   const [volunteers, setVolunteers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -16,11 +18,10 @@ export default function LeaderboardPage() {
     const fetchTop = async () => {
       setLoading(true);
       try {
-        const res = await fetch('/api/volunteers');
+        const res = await fetch('/api/volunteers?sort=points&pageSize=50&page=1');
         const data = await res.json();
         if (data.success) {
-          const sorted = [...data.volunteers].sort((a, b) => b.totalPoints - a.totalPoints || b.totalHours - a.totalHours);
-          setVolunteers(sorted);
+          setVolunteers(data.volunteers);
         }
       } catch (err) {
         console.error(err);
@@ -44,7 +45,7 @@ export default function LeaderboardPage() {
               أفضل سفراء العطاء والمتطوعين المتميزين
             </h1>
             <p className="text-xs sm:text-sm text-amber-100 max-w-xl">
-              نظام النقاط التراكمي: كل ساعة عمل معتمدة = 10 نقاط • حضور قافلة = 50 نقطة • تقييم 5 نجوم = 30 نقطة
+              نظام النقاط التراكمي: كل ساعة عمل معتمدة = {lists.rules.pointsPerHour} نقاط • حضور قافلة كاملة = {lists.rules.fullConvoyPoints} نقطة
             </p>
           </div>
         </div>

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { requireRole } from '@/lib/auth';
 import { getNumberSetting } from '@/lib/settings';
 import { createNotification } from '@/lib/notify';
+import { nextCode } from '@/lib/codes';
 
 const FIELD_ROLES = ['SUPER_ADMIN', 'VOLUNTEER_MANAGER', 'GOVERNORATE_LEAD', 'TEAM_LEADER'] as const;
 
@@ -75,8 +76,7 @@ export async function POST(request: Request) {
     }
 
     const numHours = Number(hours) || 0;
-    const count = await prisma.attendanceRecord.count();
-    const code = `ATT-2026-${String(count + 1).padStart(4, '0')}`;
+    const code = await nextCode('attendanceRecord', 'ATT-2026-', 4);
 
     // حساب النقاط التقديرية وفق قواعد النقاط القابلة للتعديل من الإعدادات
     const perHour = await getNumberSetting('POINTS_PER_HOUR');
@@ -133,50 +133,42 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'تم اعتماد هذا السجل مسبقاً ولا يمكن تكرار الاحتساب' }, { status: 400 });
     }
 
-    // 1. تحديث سجل الحضور ليصبح معتمد
-    const updated = await prisma.attendanceRecord.update({
-      where: { id: attendanceId },
-      data: {
-        approved: true,
-        approvedBy: user.name,
-        approvedAt: new Date(),
-      },
-    });
-
-    // 2. ترحيل الساعات والنقاط إلى رصيد المتطوع
-    await prisma.user.update({
-      where: { id: record.volunteerId },
-      data: {
-        totalHours: { increment: record.hours },
-        totalPoints: { increment: record.points },
-        convoysCount: record.convoyId ? { increment: 1 } : undefined,
-        lastActiveDate: new Date(),
-        status: 'ACTIVE',
-      },
-    });
-
-    // 3. إضافة حركة في سجل الـ Points Ledger
-    await prisma.pointsLedger.create({
-      data: {
-        volunteerId: record.volunteerId,
-        points: record.points,
-        type: 'ساعات تطوع معتمدة',
-        reason: `اعتماد مشاركة في: ${record.activityName} (${record.hours} ساعة)`,
-        createdBy: user.name,
-      },
-    });
-
-    // 4. تسجيل العملية في الـ Audit Log
-    await prisma.auditLog.create({
-      data: {
-        userId: user.id,
-        userName: user.name,
-        action: 'ATTENDANCE_APPROVE',
-        entity: 'Attendance',
-        entityId: record.id,
-        details: `اعتماد ${record.hours} ساعة و ${record.points} نقطة للمتطوع ${record.volunteer.name}`,
-      },
-    });
+    // اعتماد ذرّي: الحضور + ترحيل الرصيد + سجل النقاط + التدقيق في معاملة واحدة
+    const [updated] = await prisma.$transaction([
+      prisma.attendanceRecord.update({
+        where: { id: attendanceId },
+        data: { approved: true, approvedBy: user.name, approvedAt: new Date() },
+      }),
+      prisma.user.update({
+        where: { id: record.volunteerId },
+        data: {
+          totalHours: { increment: record.hours },
+          totalPoints: { increment: record.points },
+          convoysCount: record.convoyId ? { increment: 1 } : undefined,
+          lastActiveDate: new Date(),
+          status: 'ACTIVE',
+        },
+      }),
+      prisma.pointsLedger.create({
+        data: {
+          volunteerId: record.volunteerId,
+          points: record.points,
+          type: 'ساعات تطوع معتمدة',
+          reason: `اعتماد مشاركة في: ${record.activityName} (${record.hours} ساعة)`,
+          createdBy: user.name,
+        },
+      }),
+      prisma.auditLog.create({
+        data: {
+          userId: user.id,
+          userName: user.name,
+          action: 'ATTENDANCE_APPROVE',
+          entity: 'Attendance',
+          entityId: record.id,
+          details: `اعتماد ${record.hours} ساعة و ${record.points} نقطة للمتطوع ${record.volunteer.name}`,
+        },
+      }),
+    ]);
 
     // 5. إشعار المتطوع
     await createNotification({

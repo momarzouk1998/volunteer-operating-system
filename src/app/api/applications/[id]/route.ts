@@ -2,6 +2,7 @@
 import { prisma } from '@/lib/prisma';
 import { hashPassword, requireRole } from '@/lib/auth';
 import { createNotification } from '@/lib/notify';
+import { buildUserSearchText } from '@/lib/format';
 
 export async function DELETE(
   _request: Request,
@@ -142,6 +143,10 @@ export async function PUT(
             dob: application.dob || null,
             phone: application.phone,
             whatsapp: application.whatsapp || application.phone,
+            searchText: buildUserSearchText({
+              name: application.fullName, phone: application.phone, whatsapp: application.whatsapp,
+              volunteerCode: volCode, nationalId: application.nationalId, email: application.email,
+            }),
             email: application.email || null,
             governorate: application.governorate,
             city: application.city || null,

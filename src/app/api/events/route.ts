@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireRole } from '@/lib/auth';
 import { notifyRoles, ADMIN_NOTIFY_ROLES } from '@/lib/notify';
+import { nextCode } from '@/lib/codes';
 
 const JOIN_PENDING = 'طلب انضمام';
 
@@ -74,8 +75,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'لديك طلب/تكليف سابق على هذه القافلة' }, { status: 400 });
     }
 
-    const count = await prisma.taskAssignment.count();
-    const code = `TSK-2026-${String(count + 1).padStart(4, '0')}`;
+    const code = await nextCode('taskAssignment', 'TSK-2026-', 4);
 
     await prisma.taskAssignment.create({
       data: {

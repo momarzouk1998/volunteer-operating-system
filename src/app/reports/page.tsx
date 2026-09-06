@@ -31,7 +31,7 @@ export default function ReportsPage() {
 
   const handleExportFullReport = async () => {
     try {
-      const res = await fetch('/api/volunteers');
+      const res = await fetch('/api/volunteers?export=1');
       const data = await res.json();
       if (!data.success) return;
 

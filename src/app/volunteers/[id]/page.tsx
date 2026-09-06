@@ -10,6 +10,7 @@ import {
 import QRCode from 'qrcode';
 import { getStatusBadge, getRankBadge, buildTimeline, calcAge, formatDate } from '@/lib/utils';
 import { useLists } from '@/lib/useLists';
+import { toast, confirmDialog } from '@/lib/ui';
 
 export default function VolunteerDetailPage() {
   const params = useParams();
@@ -117,25 +118,27 @@ export default function VolunteerDetailPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'فشل الحفظ');
+      toast('تم حفظ التعديلات', 'success');
       setEditModal(false);
       fetchVolunteer();
     } catch (err: any) {
-      alert(err.message);
+      toast(err.message, 'error');
     } finally {
       setEditSaving(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!confirm(`تأكيد استبعاد المتطوع "${volunteer.name}"؟ سيتحول لحالة "مستبعد".`)) return;
+    if (!(await confirmDialog({ title: `استبعاد المتطوع "${volunteer.name}"`, message: 'سيتحول لحالة "مستبعد" ويفقد صلاحية الدخول.', danger: true, confirmText: 'استبعاد' }))) return;
     setDeleting(true);
     try {
       const res = await fetch(`/api/volunteers/${volunteer.id}`, { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'فشل الاستبعاد');
+      toast('تم استبعاد المتطوع', 'success');
       fetchVolunteer();
     } catch (err: any) {
-      alert(err.message);
+      toast(err.message, 'error');
     } finally {
       setDeleting(false);
     }

@@ -7,6 +7,8 @@ import {
   Truck, Calendar, MapPin, Users, ChevronRight, CheckCircle,
   Clock, Plus, ShieldCheck, AlertCircle, FileText, UserPlus, X
 } from 'lucide-react';
+import SearchableSelect, { Option } from '@/components/SearchableSelect';
+import { toast } from '@/lib/ui';
 
 export default function ConvoyDetailPage() {
   const params = useParams();
@@ -17,11 +19,21 @@ export default function ConvoyDetailPage() {
 
   // Assign Task Modal
   const [taskModal, setTaskModal] = useState(false);
-  const [volunteersList, setVolunteersList] = useState<any[]>([]);
   const [selectedVolId, setSelectedVolId] = useState('');
   const [taskRole, setTaskRole] = useState('عضو فريق التوزيع الميداني');
   const [taskType, setTaskType] = useState('توزيع وإغاثة');
   const [taskSaving, setTaskSaving] = useState(false);
+
+  const searchVolunteers = async (q: string): Promise<Option[]> => {
+    const res = await fetch(`/api/volunteers?search=${encodeURIComponent(q)}&pageSize=15`);
+    const data = await res.json();
+    if (!data.success) return [];
+    return data.volunteers.map((v: any) => ({
+      value: v.id,
+      label: v.name,
+      hint: `${v.volunteerCode} • ${v.governorate} • ${v.phone}`,
+    }));
+  };
 
   const fetchConvoy = async () => {
     setLoading(true);
@@ -38,24 +50,8 @@ export default function ConvoyDetailPage() {
     }
   };
 
-  const fetchVolunteers = async () => {
-    try {
-      const res = await fetch('/api/volunteers');
-      const data = await res.json();
-      if (data.success) {
-        setVolunteersList(data.volunteers);
-        if (data.volunteers.length > 0) setSelectedVolId(data.volunteers[0].id);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
   useEffect(() => {
-    if (id) {
-      fetchConvoy();
-      fetchVolunteers();
-    }
+    if (id) fetchConvoy();
   }, [id]);
 
   const handleAssignTask = async (e: React.FormEvent) => {
@@ -107,9 +103,10 @@ export default function ConvoyDetailPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'فشل تنفيذ الإجراء');
+      toast(data.message || 'تم', 'success');
       fetchConvoy();
     } catch (err: any) {
-      alert(err.message);
+      toast(err.message, 'error');
     }
   };
 
@@ -308,17 +305,12 @@ export default function ConvoyDetailPage() {
             <form onSubmit={handleAssignTask} className="space-y-3 text-xs">
               <div>
                 <label className="block font-bold text-slate-700 mb-1">اختر المتطوع *</label>
-                <select
+                <SearchableSelect
                   value={selectedVolId}
-                  onChange={(e) => setSelectedVolId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 font-bold"
-                >
-                  {volunteersList.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.name} ({v.volunteerCode}) - {v.governorate}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => setSelectedVolId(v)}
+                  fetcher={searchVolunteers}
+                  placeholder="ابحث عن متطوع..."
+                />
               </div>
 
               <div>

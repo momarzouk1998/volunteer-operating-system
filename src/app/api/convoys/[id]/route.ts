@@ -79,16 +79,15 @@ export async function PUT(
       if (!task) return NextResponse.json({ error: 'طلب الانضمام غير موجود' }, { status: 404 });
 
       const accepted = body.decision === 'ACCEPT';
-      await prisma.taskAssignment.update({
-        where: { id: task.id },
-        data: { status: accepted ? 'مؤكد' : 'مرفوض', supervisor: user.name },
-      });
-      if (accepted) {
-        await prisma.convoy.update({
-          where: { id: task.convoyId },
-          data: { confirmedCount: { increment: 1 } },
-        });
-      }
+      await prisma.$transaction([
+        prisma.taskAssignment.update({
+          where: { id: task.id },
+          data: { status: accepted ? 'مؤكد' : 'مرفوض', supervisor: user.name },
+        }),
+        ...(accepted
+          ? [prisma.convoy.update({ where: { id: task.convoyId }, data: { confirmedCount: { increment: 1 } } })]
+          : []),
+      ]);
       await createNotification({
         userId: task.volunteerId,
         title: accepted ? 'تم قبول انضمامك للقافلة ✅' : 'تحديث بخصوص طلب انضمامك',

@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Award, QrCode, Search, CheckCircle, ExternalLink, Printer, Trash2 } from 'lucide-react';
+import { toast, confirmDialog } from '@/lib/ui';
+import { SkeletonList } from '@/components/Skeleton';
 
 export default function CertificatesPage() {
   const [certificates, setCertificates] = useState<any[]>([]);
@@ -28,14 +30,15 @@ export default function CertificatesPage() {
   }, []);
 
   const handleRevoke = async (cert: any) => {
-    if (!confirm(`سحب وإلغاء "${cert.type}" (${cert.code})؟ سيتم خصم النقاط الممنوحة معها.`)) return;
+    if (!(await confirmDialog({ title: `سحب "${cert.type}"`, message: `الكود ${cert.code} — سيتم خصم النقاط الممنوحة معها من رصيد المتطوع.`, danger: true, confirmText: 'سحب' }))) return;
     try {
       const res = await fetch(`/api/certificates/${cert.id}`, { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'فشل السحب');
+      toast('تم سحب الشهادة', 'success');
       fetchCerts();
     } catch (err: any) {
-      alert(err.message);
+      toast(err.message, 'error');
     }
   };
 
@@ -53,7 +56,7 @@ export default function CertificatesPage() {
 
       <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center text-slate-400 text-xs">جاري تحميل الشهادات...</div>
+          <SkeletonList rows={5} />
         ) : certificates.length === 0 ? (
           <div className="p-12 text-center text-slate-400 text-xs">لا توجد شهادات صادرة حالياً. يمكنك منح شهادة من صفحة بروفايل أي متطوع.</div>
         ) : (

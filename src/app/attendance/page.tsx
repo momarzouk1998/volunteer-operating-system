@@ -5,6 +5,8 @@ import {
   Clock, CheckCircle, Filter, Search, UserCheck, Check,
   AlertCircle, ShieldCheck
 } from 'lucide-react';
+import { toast } from '@/lib/ui';
+import { SkeletonList } from '@/components/Skeleton';
 
 export default function AttendancePage() {
   const [attendances, setAttendances] = useState<any[]>([]);
@@ -40,10 +42,10 @@ export default function AttendancePage() {
       });
       const data = await res.json();
       if (data.success) {
-        alert(data.message);
+        toast(data.message, 'success');
         fetchAttendances();
       } else {
-        alert(data.error);
+        toast(data.error, 'error');
       }
     } catch (err) {
       console.error(err);
@@ -66,7 +68,7 @@ export default function AttendancePage() {
 
       <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center text-slate-400 text-xs">جاري تحميل سجلات الحضور...</div>
+          <SkeletonList rows={6} />
         ) : attendances.length === 0 ? (
           <div className="p-12 text-center text-slate-400 text-xs">لا توجد سجلات حضور مسجلة حالياً.</div>
         ) : (

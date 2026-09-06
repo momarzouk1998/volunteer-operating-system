@@ -7,6 +7,9 @@ import {
   ChevronLeft, Filter, Search, Clock, Pencil, Trash2
 } from 'lucide-react';
 import { useLists } from '@/lib/useLists';
+import { toast, confirmDialog } from '@/lib/ui';
+import { SkeletonCards } from '@/components/Skeleton';
+import NumberInput from '@/components/NumberInput';
 
 export default function ConvoysPage() {
   const { lists } = useLists();
@@ -76,25 +79,27 @@ export default function ConvoysPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'فشل الحفظ');
+      toast(editingId ? 'تم تحديث القافلة' : 'تم إنشاء القافلة', 'success');
       setIsModalOpen(false);
       setEditingId(null);
       fetchConvoys();
     } catch (err: any) {
-      alert(err.message);
+      toast(err.message, 'error');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDeleteConvoy = async (c: any) => {
-    if (!confirm(`حذف القافلة "${c.title}"؟`)) return;
+    if (!(await confirmDialog({ title: `حذف القافلة "${c.title}"`, message: 'سيتم حذف تكليفاتها وسجلات الحضور غير المعتمدة المرتبطة بها.', danger: true, confirmText: 'حذف' }))) return;
     try {
       const res = await fetch(`/api/convoys/${c.id}`, { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'فشل الحذف');
+      toast('تم حذف القافلة', 'success');
       fetchConvoys();
     } catch (err: any) {
-      alert(err.message);
+      toast(err.message, 'error');
     }
   };
 
@@ -124,7 +129,7 @@ export default function ConvoysPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {loading ? (
-          <div className="col-span-full p-12 text-center text-slate-400 text-xs">جاري تحميل القوافل...</div>
+          <div className="col-span-full"><SkeletonCards count={6} /></div>
         ) : convoys.length === 0 ? (
           <div className="col-span-full p-12 text-center text-slate-400 text-xs">لا توجد قوافل مسجلة. اضغط على إنشاء قافلة لجدولة مهمة جديدة.</div>
         ) : (
@@ -276,10 +281,9 @@ export default function ConvoysPage() {
                 </div>
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">الاحتياج العددي (متطوع)</label>
-                  <input
-                    type="number"
+                  <NumberInput
                     value={formData.requiredCount}
-                    onChange={(e) => setFormData({ ...formData, requiredCount: Number(e.target.value) })}
+                    onChange={(v) => setFormData({ ...formData, requiredCount: v })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-200"
                   />
                 </div>

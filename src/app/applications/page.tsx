@@ -5,6 +5,7 @@ import {
   UserPlus, Search, Calendar, CheckCircle, XCircle, Clock,
   Filter, Eye, MessageSquare, Star, ArrowRight, Check, Trash2
 } from 'lucide-react';
+import { toast, confirmDialog } from '@/lib/ui';
 
 export default function ApplicationsPage() {
   const [applications, setApplications] = useState<any[]>([]);
@@ -106,7 +107,7 @@ export default function ApplicationsPage() {
   };
 
   const handleApprove = async (appId: string) => {
-    if (!confirm('هل أنت متأكد من اعتماد وقبول المتطوع رسمياً وتوليد كود KAS؟')) return;
+    if (!(await confirmDialog({ title: 'اعتماد وقبول المتطوع', message: 'سيتم توليد كود عضوية KAS وإنشاء حساب دخول للمتطوع.', confirmText: 'اعتماد' }))) return;
     try {
       const res = await fetch(`/api/applications/${appId}`, {
         method: 'PUT',
@@ -115,8 +116,10 @@ export default function ApplicationsPage() {
       });
       const data = await res.json();
       if (data.success) {
-        alert(data.message);
+        toast(data.message, 'success');
         fetchApps();
+      } else {
+        toast(data.error || 'فشل الاعتماد', 'error');
       }
     } catch (err) {
       console.error(err);
@@ -124,19 +127,20 @@ export default function ApplicationsPage() {
   };
 
   const handleDelete = async (appId: string) => {
-    if (!confirm('حذف هذا الطلب نهائياً من السجل؟')) return;
+    if (!(await confirmDialog({ title: 'حذف الطلب', message: 'سيُحذف الطلب نهائياً من السجل.', danger: true, confirmText: 'حذف' }))) return;
     try {
       const res = await fetch(`/api/applications/${appId}`, { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'فشل الحذف');
+      toast('تم حذف الطلب', 'success');
       fetchApps();
     } catch (err: any) {
-      alert(err.message);
+      toast(err.message, 'error');
     }
   };
 
   const handleReject = async (appId: string) => {
-    if (!confirm('هل تريد تغيير حالة الطلب إلى مرفوض؟')) return;
+    if (!(await confirmDialog({ title: 'رفض الطلب', message: 'سيتم تحويل حالة الطلب إلى مرفوض.', danger: true, confirmText: 'رفض' }))) return;
     try {
       const res = await fetch(`/api/applications/${appId}`, {
         method: 'PUT',

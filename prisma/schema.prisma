@@ -98,7 +98,8 @@ model User {
   lastContactDate DateTime?
   avatarUrl       String?
   notes           String?
-  
+  searchText      String?          // نص بحث عربي مطبَّع (اسم + هاتف + كود + رقم قومي)
+
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 

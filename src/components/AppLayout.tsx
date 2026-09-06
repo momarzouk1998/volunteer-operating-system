@@ -6,6 +6,7 @@ import Header from '@/components/Header';
 import MobileBottomNav from '@/components/MobileBottomNav';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { UiHost } from '@/lib/ui';
 
 export default function AppLayout({
   children,
@@ -22,11 +23,17 @@ export default function AppLayout({
   const isAuthPage = pathname === '/login' || pathname === '/apply' || pathname.startsWith('/verify');
 
   if (isAuthPage) {
-    return <main className="min-h-screen bg-slate-50">{children}</main>;
+    return (
+      <main className="min-h-screen bg-slate-50">
+        {children}
+        <UiHost />
+      </main>
+    );
   }
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-800 flex">
+      <UiHost />
       {/* Sidebar */}
       <Sidebar
         isCollapsed={isCollapsed}

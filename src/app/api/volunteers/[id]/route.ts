@@ -2,6 +2,7 @@
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser, requireRole } from '@/lib/auth';
 import { isScopedRole } from '@/lib/rbac';
+import { buildUserSearchText } from '@/lib/format';
 
 export async function GET(
   request: Request,
@@ -72,6 +73,12 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
 
+    const existing = await prisma.user.findUnique({ where: { id }, select: { volunteerCode: true, governorate: true } });
+    if (!existing) return NextResponse.json({ error: 'المتطوع غير موجود' }, { status: 404 });
+    if (isScopedRole(user.role) && user.governorate && existing.governorate !== user.governorate) {
+      return NextResponse.json({ error: 'هذا المتطوع خارج نطاق محافظتك' }, { status: 403 });
+    }
+
     const updated = await prisma.user.update({
       where: { id },
       data: {
@@ -92,6 +99,13 @@ export async function PUT(
         status: body.status,
         emergencyContact: body.emergencyContact || null,
         notes: body.notes || null,
+        searchText: buildUserSearchText({
+          name: body.name,
+          phone: body.phone,
+          whatsapp: body.whatsapp,
+          volunteerCode: existing?.volunteerCode,
+          nationalId: body.nationalId,
+        }),
       },
     });
 

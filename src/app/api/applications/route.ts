@@ -2,6 +2,7 @@
 import { prisma } from '@/lib/prisma';
 import { normalizePhone, requireRole } from '@/lib/auth';
 import { notifyRoles, ADMIN_NOTIFY_ROLES } from '@/lib/notify';
+import { nextCode } from '@/lib/codes';
 
 export async function GET(request: Request) {
   try {
@@ -51,8 +52,7 @@ export async function POST(request: Request) {
     }
 
     const cleanPhone = normalizePhone(phone);
-    const count = await prisma.application.count();
-    const newCode = `APP-2026-${String(count + 1).padStart(5, '0')}`;
+    const newCode = await nextCode('application', 'APP-2026-', 5);
 
     const app = await prisma.application.create({
       data: {

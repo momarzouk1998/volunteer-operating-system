@@ -6,6 +6,8 @@ import {
   RotateCcw, Phone, Calendar, CheckCircle, MessageSquare,
   AlertTriangle, Users, ArrowRight, Clock, Trash2
 } from 'lucide-react';
+import { toast, confirmDialog } from '@/lib/ui';
+import { SkeletonList } from '@/components/Skeleton';
 
 export default function RetentionPage() {
   const [inactiveVolunteers, setInactiveVolunteers] = useState<any[]>([]);
@@ -40,14 +42,15 @@ export default function RetentionPage() {
   }, []);
 
   const handleDeleteRecord = async (recId: string) => {
-    if (!confirm('حذف سجل المتابعة هذا؟')) return;
+    if (!(await confirmDialog({ title: 'حذف سجل المتابعة', danger: true, confirmText: 'حذف' }))) return;
     try {
       const res = await fetch(`/api/retention/${recId}`, { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'فشل الحذف');
+      toast('تم حذف السجل', 'success');
       fetchRetention();
     } catch (err: any) {
-      alert(err.message);
+      toast(err.message, 'error');
     }
   };
 
@@ -94,7 +97,7 @@ export default function RetentionPage() {
 
       <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center text-slate-400 text-xs">جاري فحص سجلات النشاط...</div>
+          <SkeletonList rows={5} />
         ) : inactiveVolunteers.length === 0 ? (
           <div className="p-12 text-center text-emerald-600 font-bold text-xs">
             🎉 رائع! جميع المتطوعين نشطون وشاركوا خلال آخر 60 يوماً.

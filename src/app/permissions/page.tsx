@@ -6,6 +6,7 @@ import {
   KeyRound, CheckCircle, X,
 } from 'lucide-react';
 import { ROLE_LABELS, PERMISSION_MATRIX, ALL_ADMIN_ROLES, type Role } from '@/lib/rbac';
+import { confirmDialog } from '@/lib/ui';
 
 const ALL_ROLES: Role[] = ['SUPER_ADMIN', 'VOLUNTEER_MANAGER', 'GOVERNORATE_LEAD', 'TEAM_LEADER', 'VOLUNTEER'];
 type TabKey = 'users' | 'matrix' | 'geo' | 'lists' | 'rules';
@@ -165,7 +166,7 @@ function UsersTab({ flash }: { flash: (m: string) => void }) {
                   <td className="p-3 text-center">
                     <button
                       disabled={busy === u.id}
-                      onClick={() => { if (confirm(`تصفير كلمة مرور ${u.name} إلى 123456؟`)) patch(u.id, { resetPassword: true }, 'تم تصفير كلمة المرور'); }}
+                      onClick={async () => { if (await confirmDialog({ title: `تصفير كلمة مرور ${u.name}`, message: 'ستصبح 123456 ويُطلب من المستخدم تغييرها.', confirmText: 'تصفير' })) patch(u.id, { resetPassword: true }, 'تم تصفير كلمة المرور'); }}
                       className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold inline-flex items-center gap-1"
                     >
                       <KeyRound className="w-3.5 h-3.5" /> تصفير المرور
@@ -245,7 +246,7 @@ function GeoTab({ flash }: { flash: (m: string) => void }) {
     setGName(''); load();
   };
   const delGov = async (id: string) => {
-    if (!confirm('حذف المحافظة؟')) return;
+    if (!(await confirmDialog({ title: 'حذف المحافظة', danger: true, confirmText: 'حذف' }))) return;
     const d = await fetch(`/api/admin/governorates?id=${id}`, { method: 'DELETE' }).then((r) => r.json());
     flash(d.success ? 'تم الحذف' : d.error); load();
   };
@@ -256,7 +257,7 @@ function GeoTab({ flash }: { flash: (m: string) => void }) {
     setTName(''); load();
   };
   const delTeam = async (id: string) => {
-    if (!confirm('حذف الفريق؟')) return;
+    if (!(await confirmDialog({ title: 'حذف الفريق', danger: true, confirmText: 'حذف' }))) return;
     const d = await fetch(`/api/admin/teams?id=${id}`, { method: 'DELETE' }).then((r) => r.json());
     flash(d.success ? 'تم الحذف' : d.error); load();
   };

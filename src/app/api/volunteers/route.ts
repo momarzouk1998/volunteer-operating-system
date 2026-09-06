@@ -1,6 +1,14 @@
 ﻿import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { hashPassword, normalizePhone, requireRole, governorateScope } from '@/lib/auth';
+import { normalizeArabic, buildUserSearchText } from '@/lib/format';
+
+const LIST_SELECT = {
+  id: true, volunteerCode: true, name: true, nationalId: true, phone: true, whatsapp: true,
+  governorate: true, city: true, qualification: true, jobTitle: true, skills: true, status: true,
+  level: true, teamName: true, totalHours: true, totalPoints: true, rating: true, convoysCount: true,
+  lastActiveDate: true, createdAt: true,
+} as const;
 
 export async function GET(request: Request) {
   try {
@@ -14,68 +22,63 @@ export async function GET(request: Request) {
     const team = searchParams.get('team') || '';
     const status = searchParams.get('status') || '';
     const level = searchParams.get('level') || '';
+    const sort = searchParams.get('sort') || '';
+    const isExport = searchParams.get('export') === '1';
+
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
+    const pageSize = Math.min(200, Math.max(1, parseInt(searchParams.get('pageSize') || '20', 10) || 20));
 
     const whereClause: any = {
       role: { not: 'SUPER_ADMIN' },
       ...scope,
     };
 
-    if (search) {
-      whereClause.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { volunteerCode: { contains: search, mode: 'insensitive' } },
-        { phone: { contains: search } },
-        { nationalId: { contains: search } },
-      ];
+    if (search.trim()) {
+      // بحث عربي مطبَّع متعدد الكلمات: كل كلمة يجب أن ترد في نص البحث
+      const words = normalizeArabic(search).split(' ').filter(Boolean);
+      whereClause.AND = words.map((w) => ({
+        OR: [
+          { searchText: { contains: w } },
+          { phone: { contains: w } },
+          { nationalId: { contains: w } },
+        ],
+      }));
     }
 
-    if (governorate && governorate !== 'الكل' && !scope.governorate) {
-      whereClause.governorate = governorate;
+    if (governorate && governorate !== 'الكل' && !scope.governorate) whereClause.governorate = governorate;
+    if (team && team !== 'الكل') whereClause.teamName = team;
+    if (status && status !== 'الكل') whereClause.status = status;
+    if (level && level !== 'الكل') whereClause.level = level;
+
+    const orderBy =
+      sort === 'points'
+        ? [{ totalPoints: 'desc' as const }, { totalHours: 'desc' as const }, { rating: 'desc' as const }]
+        : [{ status: 'asc' as const }, { totalPoints: 'desc' as const }];
+
+    if (isExport) {
+      const rows = await prisma.user.findMany({ where: whereClause, orderBy, select: LIST_SELECT, take: 10000 });
+      return NextResponse.json({ success: true, volunteers: rows, total: rows.length });
     }
 
-    if (team && team !== 'الكل') {
-      whereClause.teamName = team;
-    }
+    const [volunteers, total] = await Promise.all([
+      prisma.user.findMany({
+        where: whereClause,
+        orderBy,
+        select: LIST_SELECT,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      prisma.user.count({ where: whereClause }),
+    ]);
 
-    if (status && status !== 'الكل') {
-      whereClause.status = status;
-    }
-
-    if (level && level !== 'الكل') {
-      whereClause.level = level;
-    }
-
-    const volunteers = await prisma.user.findMany({
-      where: whereClause,
-      orderBy: [
-        { status: 'asc' },
-        { totalPoints: 'desc' },
-      ],
-      select: {
-        id: true,
-        volunteerCode: true,
-        name: true,
-        nationalId: true,
-        phone: true,
-        whatsapp: true,
-        governorate: true,
-        city: true,
-        qualification: true,
-        jobTitle: true,
-        skills: true,
-        status: true,
-        level: true,
-        teamName: true,
-        totalHours: true,
-        totalPoints: true,
-        rating: true,
-        convoysCount: true,
-        lastActiveDate: true,
-        createdAt: true,
-      },
+    return NextResponse.json({
+      success: true,
+      volunteers,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
     });
-
-    return NextResponse.json({ success: true, volunteers });
   } catch (err: any) {
     console.error('Error fetching volunteers:', err);
     return NextResponse.json({ error: 'خطأ في جلب بيانات المتطوعين' }, { status: 500 });
@@ -149,6 +152,7 @@ export async function POST(request: Request) {
         nationalId: nationalId || null,
         phone: cleanPhone,
         whatsapp: whatsapp ? normalizePhone(whatsapp) : cleanPhone,
+        searchText: buildUserSearchText({ name, phone: cleanPhone, whatsapp, volunteerCode: newCode, nationalId }),
         governorate: governorate || 'الجيزة',
         city: city || null,
         address: address || null,

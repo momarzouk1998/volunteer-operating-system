@@ -1,6 +1,7 @@
 ﻿import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireRole } from '@/lib/auth';
+import { nextCode } from '@/lib/codes';
 
 export async function GET(request: Request) {
   try {
@@ -54,8 +55,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'يرجى استكمال الحقول الأساسية للقافلة' }, { status: 400 });
     }
 
-    const count = await prisma.convoy.count();
-    const code = `CNV-2026-${String(count + 1).padStart(3, '0')}`;
+    const code = await nextCode('convoy', 'CNV-2026-', 3);
 
     const convoy = await prisma.convoy.create({
       data: {

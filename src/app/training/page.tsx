@@ -5,6 +5,9 @@ import {
   GraduationCap, Plus, Calendar, Users, Award, CheckCircle, Clock, Pencil, Trash2
 } from 'lucide-react';
 import { useLists } from '@/lib/useLists';
+import { toast, confirmDialog } from '@/lib/ui';
+import { SkeletonCards } from '@/components/Skeleton';
+import NumberInput from '@/components/NumberInput';
 
 export default function TrainingPage() {
   const { lists } = useLists();
@@ -73,25 +76,27 @@ export default function TrainingPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'فشل الحفظ');
+      toast(editingId ? 'تم تحديث الدورة' : 'تم إنشاء الدورة', 'success');
       setIsModalOpen(false);
       setEditingId(null);
       fetchCourses();
     } catch (err: any) {
-      alert(err.message);
+      toast(err.message, 'error');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDeleteCourse = async (c: any) => {
-    if (!confirm(`حذف الدورة "${c.title}"؟`)) return;
+    if (!(await confirmDialog({ title: `حذف الدورة "${c.title}"`, danger: true, confirmText: 'حذف' }))) return;
     try {
       const res = await fetch(`/api/training/${c.id}`, { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'فشل الحذف');
+      toast('تم حذف الدورة', 'success');
       fetchCourses();
     } catch (err: any) {
-      alert(err.message);
+      toast(err.message, 'error');
     }
   };
 
@@ -119,7 +124,7 @@ export default function TrainingPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {loading ? (
-          <div className="col-span-full p-12 text-center text-slate-400 text-xs">جاري تحميل الدورات...</div>
+          <div className="col-span-full"><SkeletonCards count={6} /></div>
         ) : courses.length === 0 ? (
           <div className="col-span-full p-12 text-center text-slate-400 text-xs">لا توجد دورات تدريبية مسجلة حالياً.</div>
         ) : (
@@ -213,10 +218,9 @@ export default function TrainingPage() {
                 </div>
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">عدد الساعات</label>
-                  <input
-                    type="number"
+                  <NumberInput
                     value={formData.hours}
-                    onChange={(e) => setFormData({ ...formData, hours: Number(e.target.value) })}
+                    onChange={(v) => setFormData({ ...formData, hours: v })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-200"
                   />
                 </div>

@@ -407,6 +407,28 @@ async function main() {
     });
   }
 
+  // تعبئة نص البحث العربي المطبَّع لكل المستخدمين
+  const normAr = (t) =>
+    (t || '')
+      .toString()
+      .toLowerCase()
+      .replace(/[أإآٱ]/g, 'ا')
+      .replace(/ى/g, 'ي')
+      .replace(/ؤ/g, 'و')
+      .replace(/ئ/g, 'ي')
+      .replace(/ة/g, 'ه')
+      .replace(/[ً-ْٰ]/g, '')
+      .replace(/[ـ_.-]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  const allUsers = await prisma.user.findMany({ select: { id: true, name: true, phone: true, whatsapp: true, volunteerCode: true, nationalId: true, email: true } });
+  for (const u of allUsers) {
+    await prisma.user.update({
+      where: { id: u.id },
+      data: { searchText: normAr([u.name, u.phone, u.whatsapp, u.volunteerCode, u.nationalId, u.email].filter(Boolean).join(' ')) },
+    });
+  }
+
   console.log('✅ اكتمل بذر البيانات بنجاح تام!');
 }
 

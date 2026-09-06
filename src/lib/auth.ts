@@ -1,12 +1,14 @@
 ﻿import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { prisma } from './prisma';
 import type { Role } from './rbac';
 import { isScopedRole } from './rbac';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'vos-secret-key-2026-khwater-ahla-shabab';
+export const JWT_SECRET_STR = process.env.JWT_SECRET || 'vos-secret-key-2026-khwater-ahla-shabab';
+const JWT_SECRET = new TextEncoder().encode(JWT_SECRET_STR);
+export const AUTH_COOKIE = 'vos_token';
 
 export interface TokenPayload {
   userId: string;
@@ -42,24 +44,29 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
   return await bcrypt.compare(password, hash);
 }
 
-export function signToken(payload: TokenPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '30d' });
+export async function signToken(payload: TokenPayload): Promise<string> {
+  return await new SignJWT({ ...payload })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime('30d')
+    .sign(JWT_SECRET);
 }
 
-export function verifyToken(token: string): TokenPayload | null {
+export async function verifyToken(token: string): Promise<TokenPayload | null> {
   try {
-    return jwt.verify(token, JWT_SECRET) as TokenPayload;
-  } catch (error) {
+    const { payload } = await jwtVerify(token, JWT_SECRET);
+    return payload as unknown as TokenPayload;
+  } catch {
     return null;
   }
 }
 
 export async function getCurrentUser() {
   const cookieStore = await cookies();
-  const token = cookieStore.get('vos_token')?.value;
+  const token = cookieStore.get(AUTH_COOKIE)?.value;
   if (!token) return null;
 
-  const payload = verifyToken(token);
+  const payload = await verifyToken(token);
   if (!payload || !payload.userId) return null;
 
   try {

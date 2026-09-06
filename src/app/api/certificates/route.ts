@@ -2,6 +2,7 @@
 import { prisma } from '@/lib/prisma';
 import { requireRole } from '@/lib/auth';
 import { createNotification } from '@/lib/notify';
+import { nextCode } from '@/lib/codes';
 import crypto from 'crypto';
 
 const CERT_ROLES = ['SUPER_ADMIN', 'VOLUNTEER_MANAGER'] as const;
@@ -46,8 +47,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'يرجى استكمال بيانات الشهادة' }, { status: 400 });
     }
 
-    const count = await prisma.reward.count();
-    const code = `CERT-KAS-2026-${String(count + 1).padStart(4, '0')}`;
+    const code = await nextCode('reward', 'CERT-KAS-2026-', 4);
     const qrToken = crypto.randomBytes(16).toString('hex');
     const numPoints = Number(points) || 0;
 

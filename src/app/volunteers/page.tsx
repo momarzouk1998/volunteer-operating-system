@@ -21,6 +21,9 @@ import {
 } from 'lucide-react';
 import { getStatusBadge } from '@/lib/utils';
 import { useLists } from '@/lib/useLists';
+import Pagination from '@/components/Pagination';
+import { SkeletonList } from '@/components/Skeleton';
+import { toast } from '@/lib/ui';
 import * as XLSX from 'xlsx';
 
 export default function VolunteersPage() {
@@ -30,6 +33,9 @@ export default function VolunteersPage() {
   const [governorate, setGovernorate] = useState('الكل');
   const [team, setTeam] = useState('الكل');
   const [status, setStatus] = useState('الكل');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
   const [modalError, setModalError] = useState('');
@@ -54,7 +60,7 @@ export default function VolunteersPage() {
     notes: '',
   });
 
-  const fetchVolunteers = async () => {
+  const fetchVolunteers = async (goPage = page) => {
     setLoading(true);
     try {
       const q = new URLSearchParams({
@@ -62,11 +68,15 @@ export default function VolunteersPage() {
         governorate: governorate !== 'الكل' ? governorate : '',
         team: team !== 'الكل' ? team : '',
         status: status !== 'الكل' ? status : '',
+        page: String(goPage),
+        pageSize: '20',
       });
       const res = await fetch(`/api/volunteers?${q.toString()}`);
       const data = await res.json();
       if (data.success) {
         setVolunteers(data.volunteers);
+        setTotalPages(data.totalPages || 1);
+        setTotal(data.total || 0);
       }
     } catch (err) {
       console.error(err);
@@ -75,9 +85,18 @@ export default function VolunteersPage() {
     }
   };
 
+  const filterKey = `${search}|${governorate}|${team}|${status}`;
+  const prevFilterKey = React.useRef(filterKey);
+
+  // عند تغيّر الفلاتر: ارجع للصفحة الأولى
   useEffect(() => {
-    fetchVolunteers();
-  }, [search, governorate, team, status]);
+    if (prevFilterKey.current !== filterKey) {
+      prevFilterKey.current = filterKey;
+      if (page !== 1) { setPage(1); return; }
+    }
+    fetchVolunteers(page);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterKey, page]);
 
   const handleAddVolunteer = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -233,7 +252,7 @@ export default function VolunteersPage() {
       {/* Volunteers Table & Responsive Cards */}
       <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center text-slate-400 text-xs">جاري تحميل سجلات المتطوعين...</div>
+          <SkeletonList rows={8} />
         ) : volunteers.length === 0 ? (
           <div className="p-12 text-center text-slate-400 text-xs">لا توجد سجلات متطابقّة مع معايير البحث.</div>
         ) : (
@@ -358,6 +377,11 @@ export default function VolunteersPage() {
               })}
             </div>
           </>
+        )}
+        {!loading && volunteers.length > 0 && (
+          <div className="border-t border-slate-100">
+            <Pagination page={page} totalPages={totalPages} total={total} onChange={setPage} />
+          </div>
         )}
       </div>
 
