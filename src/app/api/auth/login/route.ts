@@ -1,9 +1,18 @@
 ﻿import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { normalizePhone, verifyPassword, signToken } from '@/lib/auth';
+import { rateLimit, clientIp } from '@/lib/ratelimit';
 
 export async function POST(request: Request) {
   try {
+    const rl = rateLimit(`login:${clientIp(request)}`, 10, 5 * 60 * 1000);
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: `محاولات دخول كثيرة. حاول بعد ${rl.retryAfter} ثانية.` },
+        { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } }
+      );
+    }
+
     const body = await request.json();
     const { phone, password } = body;
 

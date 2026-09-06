@@ -60,6 +60,9 @@ export default function ProfilePage() {
   const [passMsg, setPassMsg] = useState('');
   const [passError, setPassError] = useState('');
 
+  const passRef = React.useRef<HTMLDivElement>(null);
+  const [dlPass, setDlPass] = useState(false);
+
   // تعديل البيانات الشخصية
   const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState<Record<string, string>>({});
@@ -326,7 +329,7 @@ export default function ProfilePage() {
       {tab === 'overview' && (
         <div id="pass" className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           <div className="lg:col-span-1">
-            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-navy-royal to-navy-deep text-white p-5 shadow-2xl border border-primary/40 flex flex-col justify-between min-h-[400px]">
+            <div ref={passRef} className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-navy-royal to-navy-deep text-white p-5 shadow-2xl border border-primary/40 flex flex-col justify-between min-h-[400px]">
               <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-400 via-sky-400 to-amber-400" />
               <div className="flex items-center justify-between pb-4 border-b border-white/15">
                 <div className="flex items-center gap-2.5">
@@ -380,11 +383,19 @@ export default function ProfilePage() {
             </div>
 
             <button
-              onClick={() => window.print()}
-              className="mt-3 w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md transition-colors no-print"
+              onClick={async () => {
+                if (!passRef.current) return;
+                setDlPass(true);
+                try {
+                  const { elementToPdf } = await import('@/lib/exportPdf');
+                  await elementToPdf(passRef.current, `بطاقة_${v.volunteerCode || 'متطوع'}.pdf`);
+                } catch { window.print(); } finally { setDlPass(false); }
+              }}
+              disabled={dlPass}
+              className="mt-3 w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md transition-colors no-print disabled:opacity-60"
             >
               <Printer className="w-4 h-4" />
-              <span>طباعة بطاقة الهوية</span>
+              <span>{dlPass ? 'جاري التحضير...' : 'تحميل بطاقة الهوية PDF'}</span>
             </button>
           </div>
 

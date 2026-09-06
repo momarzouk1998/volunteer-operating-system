@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   User, Phone, MapPin, Award, Clock, Trophy, Calendar,
-  CheckCircle, Printer, IdCard, Star, ChevronRight, Download, Pencil, Trash2, X
+  CheckCircle, Printer, IdCard, Star, ChevronRight, Download, Pencil, Trash2, X, RefreshCw
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { getStatusBadge, getRankBadge, buildTimeline, calcAge, formatDate } from '@/lib/utils';
@@ -140,6 +140,22 @@ export default function VolunteerDetailPage() {
     }
   };
 
+  const handleRecalc = async () => {
+    try {
+      const res = await fetch(`/api/volunteers/${volunteer.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'RECALC' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'فشل');
+      toast(data.message, 'success');
+      fetchVolunteer();
+    } catch (err: any) {
+      toast(err.message, 'error');
+    }
+  };
+
   const handleDelete = async () => {
     if (!(await confirmDialog({ title: `استبعاد المتطوع "${volunteer.name}"`, message: 'سيتحول لحالة "مستبعد" ويفقد صلاحية الدخول.', danger: true, confirmText: 'استبعاد' }))) return;
     setDeleting(true);
@@ -210,6 +226,11 @@ export default function VolunteerDetailPage() {
                 <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`} />
                 {badge.label}
               </span>
+              {volunteer.activity && (
+                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${volunteer.activity === 'نشط' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                  {volunteer.activity === 'نشط' ? 'نشاط: نشط' : 'نشاط: خامل'}
+                </span>
+              )}
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
               كود العضوية: <strong className="text-primary font-mono">{volunteer.volunteerCode}</strong> • فرع {volunteer.governorate}
@@ -225,6 +246,16 @@ export default function VolunteerDetailPage() {
             >
               <Pencil className="w-4 h-4 text-primary" />
               <span>تعديل البيانات</span>
+            </button>
+          )}
+          {canManage && (
+            <button
+              onClick={handleRecalc}
+              title="إعادة احتساب الساعات والنقاط والمستوى من السجلات المعتمدة"
+              className="px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 shadow-xs flex items-center gap-1.5 transition-colors"
+            >
+              <RefreshCw className="w-4 h-4 text-emerald-600" />
+              <span>إعادة احتساب الرصيد</span>
             </button>
           )}
           <button

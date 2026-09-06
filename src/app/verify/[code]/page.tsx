@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import QRCode from 'qrcode';
-import { CheckCircle, XCircle, Printer, Loader2 } from 'lucide-react';
+import { CheckCircle, XCircle, Download, Loader2 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
+import { elementToPdf } from '@/lib/exportPdf';
 
 export default function PublicVerifyPage() {
   const params = useParams();
@@ -13,6 +14,8 @@ export default function PublicVerifyPage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>(null);
   const [qr, setQr] = useState('');
+  const [dl, setDl] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const run = async () => {
@@ -45,7 +48,7 @@ export default function PublicVerifyPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-primary-dark to-navy-royal p-4 py-8 flex items-center justify-center print:bg-white print:p-0">
-      <div className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden relative print:shadow-none print:rounded-none print:max-w-none">
+      <div ref={cardRef} className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden relative print:shadow-none print:rounded-none print:max-w-none">
         {/* شريط علوي ملوّن */}
         <div className={`h-2 ${valid ? 'bg-gradient-to-r from-emerald-500 via-sky-500 to-amber-500' : 'bg-rose-500'}`} />
 
@@ -107,11 +110,18 @@ export default function PublicVerifyPage() {
           </p>
 
           <button
-            onClick={() => window.print()}
-            className="no-print w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md transition-colors"
+            onClick={async () => {
+              if (!cardRef.current) return;
+              setDl(true);
+              try { await elementToPdf(cardRef.current, `${data?.documentCode || 'vos'}.pdf`); }
+              catch { window.print(); }
+              finally { setDl(false); }
+            }}
+            disabled={dl}
+            className="no-print w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md transition-colors disabled:opacity-60"
           >
-            <Printer className="w-4 h-4" />
-            <span>تحميل / طباعة PDF</span>
+            <Download className="w-4 h-4" />
+            <span>{dl ? 'جاري التحضير...' : 'تحميل PDF'}</span>
           </button>
         </div>
       </div>

@@ -38,6 +38,7 @@ export async function PUT(
 
     const application = await prisma.application.findUnique({
       where: { id },
+      include: { interview: true },
     });
 
     if (!application) {
@@ -113,93 +114,105 @@ export async function PUT(
 
     // إجراء 3: اعتماد وقبول المتطوع وتوليد كود KAS رسمي
     if (action === 'APPROVE_VOLUNTEER') {
-      // فحص هل له حساب مسجل مسبقاً
-      let existingUser = await prisma.user.findFirst({
-        where: { phone: application.phone },
-      });
+      // منع الاعتماد إذا كانت توصية المقابلة سلبية (إلا بتجاوز صريح)
+      const rec = application.interview?.recommendation || '';
+      if (!body.force && /مرفوض|غير مستوف|غير مستوٍ|رفض/.test(rec)) {
+        return NextResponse.json(
+          { error: `توصية المقابلة سلبية (${rec}). للاعتماد رغم ذلك أعد الإرسال بتأكيد التجاوز.`, needsForce: true },
+          { status: 409 }
+        );
+      }
 
-      let volCode = existingUser?.volunteerCode;
+      const existing = await prisma.user.findFirst({ where: { phone: application.phone } });
+      const isNew = !existing;
+      let volCode = existing?.volunteerCode || null;
+      const passwordHash = isNew ? await hashPassword('123456') : undefined;
 
-      if (!existingUser) {
-        // توليد كود المتطوع KAS-XXXXX
-        const lastUser = await prisma.user.findFirst({
-          where: { volunteerCode: { startsWith: 'KAS-' } },
-          orderBy: { volunteerCode: 'desc' },
+      // بيانات محدّثة من الطلب (تُدمج مع القديمة للحساب الموجود)
+      const merged = {
+        name: application.fullName,
+        nationalId: application.nationalId || existing?.nationalId || null,
+        dob: application.dob || existing?.dob || null,
+        whatsapp: application.whatsapp || existing?.whatsapp || application.phone,
+        email: application.email || existing?.email || null,
+        governorate: application.governorate || existing?.governorate || 'الجيزة',
+        city: application.city || existing?.city || null,
+        address: application.address || existing?.address || null,
+        qualification: application.qualification || existing?.qualification || null,
+        major: application.major || existing?.major || null,
+        skills: application.skills || existing?.skills || null,
+        preferredFields: application.preferredFields || existing?.preferredFields || null,
+        emergencyContact: application.emergencyContact || existing?.emergencyContact || null,
+      };
+
+      const result = await prisma.$transaction(async (tx) => {
+        let userRow = existing;
+
+        if (isNew) {
+          const lastUser = await tx.user.findFirst({
+            where: { volunteerCode: { startsWith: 'KAS-0' } },
+            orderBy: { volunteerCode: 'desc' },
+          });
+          let nextNum = 1;
+          const m = lastUser?.volunteerCode?.match(/KAS-(\d+)/);
+          if (m) nextNum = parseInt(m[1], 10) + 1;
+          volCode = `KAS-${String(nextNum).padStart(5, '0')}`;
+
+          userRow = await tx.user.create({
+            data: {
+              ...merged,
+              volunteerCode: volCode,
+              phone: application.phone,
+              searchText: buildUserSearchText({ ...merged, phone: application.phone, volunteerCode: volCode }),
+              status: 'ACTIVE',
+              level: 'متطوع جديد',
+              teamName: 'فريق الإغاثة الميدانية',
+              passwordHash: passwordHash!,
+            },
+          });
+        } else {
+          userRow = await tx.user.update({
+            where: { id: existing!.id },
+            data: {
+              ...merged,
+              searchText: buildUserSearchText({ ...merged, phone: application.phone, volunteerCode: volCode }),
+              status: existing!.status === 'EXCLUDED' ? 'ACTIVE' : existing!.status,
+            },
+          });
+        }
+
+        const updatedApp = await tx.application.update({
+          where: { id },
+          data: { status: 'ACCEPTED', decision: 'مقبول ومعتمد', volunteerCode: volCode, reviewerName: user.name },
         });
 
-        let nextNum = 1;
-        if (lastUser && lastUser.volunteerCode) {
-          const match = lastUser.volunteerCode.match(/KAS-(\d+)/);
-          if (match) nextNum = parseInt(match[1], 10) + 1;
-        }
-        volCode = `KAS-${String(nextNum).padStart(5, '0')}`;
-        const passwordHash = await hashPassword('123456');
-
-        existingUser = await prisma.user.create({
+        await tx.auditLog.create({
           data: {
-            volunteerCode: volCode,
-            name: application.fullName,
-            nationalId: application.nationalId || null,
-            dob: application.dob || null,
-            phone: application.phone,
-            whatsapp: application.whatsapp || application.phone,
-            searchText: buildUserSearchText({
-              name: application.fullName, phone: application.phone, whatsapp: application.whatsapp,
-              volunteerCode: volCode, nationalId: application.nationalId, email: application.email,
-            }),
-            email: application.email || null,
-            governorate: application.governorate,
-            city: application.city || null,
-            address: application.address || null,
-            qualification: application.qualification || null,
-            major: application.major || null,
-            skills: application.skills || null,
-            preferredFields: application.preferredFields || null,
-            emergencyContact: application.emergencyContact || null,
-            status: 'ACTIVE',
-            level: 'متطوع جديد',
-            teamName: 'فريق الإغاثة الميدانية',
-            passwordHash,
+            userId: user.id,
+            userName: user.name,
+            action: 'APPROVE',
+            entity: 'Application',
+            entityId: id,
+            details: `اعتماد طلب التطوع ${application.fullName} — ${isNew ? 'حساب جديد' : 'تحديث حساب قائم'} (${volCode})`,
           },
         });
-      }
 
-      const updated = await prisma.application.update({
-        where: { id },
-        data: {
-          status: 'ACCEPTED',
-          decision: 'مقبول ومعتمد',
-          volunteerCode: volCode,
-          reviewerName: user.name,
-        },
+        return { userId: userRow!.id, updatedApp };
       });
 
-      await prisma.auditLog.create({
-        data: {
-          userId: user.id,
-          userName: user.name,
-          action: 'APPROVE',
-          entity: 'Application',
-          entityId: id,
-          details: `تم اعتماد طلب التطوع ${application.fullName} وتوليد الكود ${volCode}`,
-        },
+      await createNotification({
+        userId: result.userId,
+        title: 'تم قبولك في أسرة المتطوعين 🎉',
+        body: `كود عضويتك ${volCode}.${isNew ? ' سجّل الدخول برقم هاتفك وكلمة المرور المؤقتة 123456 وغيّرها من صفحة ملفي.' : ''}`,
+        type: 'APPLICATION',
+        link: '/profile',
       });
-
-      if (existingUser) {
-        await createNotification({
-          userId: existingUser.id,
-          title: 'تم قبولك في أسرة المتطوعين 🎉',
-          body: `كود عضويتك ${volCode}. سجّل الدخول برقم هاتفك وكلمة المرور المؤقتة 123456 وغيّرها من صفحة ملفي.`,
-          type: 'APPLICATION',
-          link: '/profile',
-        });
-      }
 
       return NextResponse.json({
         success: true,
         message: `تم اعتماد المتطوع بنجاح وإصدار كود العضوية: ${volCode}`,
         volunteerCode: volCode,
-        application: updated,
+        application: result.updatedApp,
       });
     }
 

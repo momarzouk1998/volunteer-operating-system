@@ -6,11 +6,17 @@ import {
   Filter, Eye, MessageSquare, Star, ArrowRight, Check, Trash2
 } from 'lucide-react';
 import { toast, confirmDialog } from '@/lib/ui';
+import Pagination from '@/components/Pagination';
+import { SkeletonList } from '@/components/Skeleton';
 
 export default function ApplicationsPage() {
   const [applications, setApplications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('الكل');
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
 
   // Modals
   const [selectedApp, setSelectedApp] = useState<any>(null);
@@ -28,25 +34,37 @@ export default function ApplicationsPage() {
 
   const [saving, setSaving] = useState(false);
 
-  const fetchApps = async () => {
+  const fetchApps = async (goPage = page) => {
     setLoading(true);
     try {
-      const q = status !== 'الكل' ? `?status=${status}` : '';
-      const res = await fetch(`/api/applications${q}`);
+      const q = new URLSearchParams({
+        status: status !== 'الكل' ? status : '',
+        search,
+        page: String(goPage),
+        pageSize: '20',
+      });
+      const res = await fetch(`/api/applications?${q}`);
       const data = await res.json();
       if (data.success) {
         setApplications(data.applications);
+        setTotalPages(data.totalPages || 1);
+        setTotal(data.total || 0);
       }
-    } catch (err) {
-      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
+  const key = `${status}|${search}`;
+  const prev = React.useRef(key);
   useEffect(() => {
-    fetchApps();
-  }, [status]);
+    if (prev.current !== key) {
+      prev.current = key;
+      if (page !== 1) { setPage(1); return; }
+    }
+    fetchApps(page);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, page]);
 
   const handleScheduleInterview = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,18 +124,22 @@ export default function ApplicationsPage() {
     }
   };
 
-  const handleApprove = async (appId: string) => {
-    if (!(await confirmDialog({ title: 'اعتماد وقبول المتطوع', message: 'سيتم توليد كود عضوية KAS وإنشاء حساب دخول للمتطوع.', confirmText: 'اعتماد' }))) return;
+  const handleApprove = async (appId: string, force = false) => {
+    if (!force && !(await confirmDialog({ title: 'اعتماد وقبول المتطوع', message: 'سيتم توليد كود عضوية KAS وإنشاء/تحديث حساب المتطوع.', confirmText: 'اعتماد' }))) return;
     try {
       const res = await fetch(`/api/applications/${appId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'APPROVE_VOLUNTEER' }),
+        body: JSON.stringify({ action: 'APPROVE_VOLUNTEER', force }),
       });
       const data = await res.json();
       if (data.success) {
         toast(data.message, 'success');
         fetchApps();
+      } else if (data.needsForce) {
+        if (await confirmDialog({ title: 'توصية المقابلة سلبية', message: data.error, danger: true, confirmText: 'اعتماد رغم ذلك' })) {
+          handleApprove(appId, true);
+        }
       } else {
         toast(data.error || 'فشل الاعتماد', 'error');
       }
@@ -169,7 +191,13 @@ export default function ApplicationsPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="بحث بالاسم، الكود، الهاتف..."
+            className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs outline-none focus:border-primary w-52"
+          />
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
@@ -187,10 +215,11 @@ export default function ApplicationsPage() {
 
       <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center text-slate-400 text-xs">جاري تحميل الطلبات...</div>
+          <SkeletonList rows={6} />
         ) : applications.length === 0 ? (
-          <div className="p-12 text-center text-slate-400 text-xs">لا توجد طلبات تطوع حالياً.</div>
+          <div className="p-12 text-center text-slate-400 text-xs">لا توجد طلبات مطابقة.</div>
         ) : (
+          <>
           <div className="divide-y divide-slate-100">
             {applications.map((app) => (
               <div key={app.id} className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50/50 transition-colors">
@@ -286,6 +315,10 @@ export default function ApplicationsPage() {
               </div>
             ))}
           </div>
+          <div className="border-t border-slate-100">
+            <Pagination page={page} totalPages={totalPages} total={total} onChange={setPage} />
+          </div>
+          </>
         )}
       </div>
 

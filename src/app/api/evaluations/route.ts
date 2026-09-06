@@ -2,6 +2,8 @@
 import { prisma } from '@/lib/prisma';
 import { requireRole } from '@/lib/auth';
 import { createNotification } from '@/lib/notify';
+import { recalcVolunteer } from '@/lib/volunteerBalance';
+import { isScopedRole } from '@/lib/rbac';
 
 export async function POST(request: Request) {
   try {
@@ -19,6 +21,12 @@ export async function POST(request: Request) {
       recommendation,
       notes,
     } = body;
+
+    const target = await prisma.user.findUnique({ where: { id: volunteerId }, select: { governorate: true } });
+    if (!target) return NextResponse.json({ error: 'المتطوع غير موجود' }, { status: 404 });
+    if (isScopedRole(user.role) && user.governorate && target.governorate !== user.governorate) {
+      return NextResponse.json({ error: 'هذا المتطوع خارج نطاق محافظتك' }, { status: 403 });
+    }
 
     const c = Number(commitment) || 5;
     const co = Number(cooperation) || 5;
@@ -41,19 +49,8 @@ export async function POST(request: Request) {
       },
     });
 
-    // تحديث متوسط التقييم التراكمي للمتطوع
-    const allEvals = await prisma.evaluation.findMany({
-      where: { volunteerId },
-      select: { overallScore: true },
-    });
-
-    const sum = allEvals.reduce((acc, curr) => acc + curr.overallScore, 0);
-    const newAvg = Number((sum / allEvals.length).toFixed(2));
-
-    await prisma.user.update({
-      where: { id: volunteerId },
-      data: { rating: newAvg },
-    });
+    // إعادة احتساب متوسط التقييم ضمن رصيد المتطوع
+    await recalcVolunteer(volunteerId);
 
     await createNotification({
       userId: volunteerId,

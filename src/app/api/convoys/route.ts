@@ -2,11 +2,13 @@
 import { prisma } from '@/lib/prisma';
 import { requireRole } from '@/lib/auth';
 import { nextCode } from '@/lib/codes';
+import { isScopedRole } from '@/lib/rbac';
 
 export async function GET(request: Request) {
   try {
     const gate = await requireRole('ANY_AUTH');
     if (!gate.ok) return gate.res;
+    const scoped = isScopedRole(gate.user.role) && gate.user.governorate ? gate.user.governorate : null;
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
@@ -14,7 +16,8 @@ export async function GET(request: Request) {
 
     const whereClause: any = {};
     if (status && status !== 'الكل') whereClause.status = status;
-    if (governorate && governorate !== 'الكل') whereClause.governorate = governorate;
+    if (scoped) whereClause.governorate = scoped;
+    else if (governorate && governorate !== 'الكل') whereClause.governorate = governorate;
 
     const convoys = await prisma.convoy.findMany({
       where: whereClause,
@@ -51,7 +54,10 @@ export async function POST(request: Request) {
       description,
     } = body;
 
-    if (!title || !type || !governorate || !location || !startDate) {
+    // الأدوار المحصورة تنشئ قوافل في محافظتها فقط
+    const effGov = isScopedRole(user.role) && user.governorate ? user.governorate : governorate;
+
+    if (!title || !type || !effGov || !location || !startDate) {
       return NextResponse.json({ error: 'يرجى استكمال الحقول الأساسية للقافلة' }, { status: 400 });
     }
 
@@ -62,7 +68,7 @@ export async function POST(request: Request) {
         code,
         title,
         type,
-        governorate,
+        governorate: effGov,
         location,
         startDate: new Date(startDate),
         supervisor: supervisor || user.name,

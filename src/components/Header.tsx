@@ -16,13 +16,38 @@ export default function Header({ setMobileOpen, currentUser }: HeaderProps) {
   const [items, setItems] = useState<any[]>([]);
   const [unread, setUnread] = useState(0);
 
+  const prevUnread = React.useRef<number | null>(null);
+
+  const beep = () => {
+    try {
+      const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (!Ctx) return;
+      const ac = new Ctx();
+      const o = ac.createOscillator();
+      const g = ac.createGain();
+      o.connect(g); g.connect(ac.destination);
+      o.frequency.value = 880; o.type = 'sine';
+      g.gain.setValueAtTime(0.06, ac.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + 0.25);
+      o.start(); o.stop(ac.currentTime + 0.26);
+    } catch {
+      /* ignore */
+    }
+  };
+
   const load = useCallback(async () => {
     try {
       const res = await fetch('/api/notifications');
       const data = await res.json();
       if (data.success) {
         setItems(data.items || []);
-        setUnread(data.unread || 0);
+        const u = data.unread || 0;
+        if (prevUnread.current !== null && u > prevUnread.current) beep();
+        prevUnread.current = u;
+        setUnread(u);
+        if (typeof document !== 'undefined') {
+          document.title = u > 0 ? `(${u}) منظومة VOS` : 'منظومة VOS';
+        }
       }
     } catch {
       /* silent */
@@ -31,7 +56,7 @@ export default function Header({ setMobileOpen, currentUser }: HeaderProps) {
 
   useEffect(() => {
     load();
-    const t = setInterval(load, 60000);
+    const t = setInterval(load, 45000);
     return () => clearInterval(t);
   }, [load]);
 

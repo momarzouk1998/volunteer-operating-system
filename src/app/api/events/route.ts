@@ -45,22 +45,70 @@ export async function GET() {
       myStatus: byConvoy[c.id] || null,
     }));
 
-    return NextResponse.json({ success: true, events, myTasks });
+    // الدورات التدريبية القادمة + حالة تسجيلي
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const courses = await prisma.trainingCourse.findMany({
+      where: { date: { gte: now } },
+      orderBy: { date: 'asc' },
+      include: {
+        attendances: { where: { volunteerId: me.id }, select: { id: true, attended: true, passed: true } },
+      },
+    });
+    const training = courses.map((c) => ({
+      id: c.id,
+      title: c.title,
+      type: c.type,
+      trainer: c.trainer,
+      date: c.date,
+      hours: c.hours,
+      location: c.location,
+      isLeadershipPrereq: c.isLeadershipPrereq,
+      enrolled: c.attendances.length > 0,
+    }));
+
+    return NextResponse.json({ success: true, events, myTasks, training });
   } catch (err: any) {
     console.error('Error fetching events:', err);
     return NextResponse.json({ error: 'خطأ في جلب الفعاليات المتاحة' }, { status: 500 });
   }
 }
 
-// طلب المتطوع الانضمام لقافلة
+// طلب المتطوع الانضمام لقافلة أو التسجيل في دورة تدريبية
 export async function POST(request: Request) {
   try {
     const gate = await requireRole('ANY_AUTH');
     if (!gate.ok) return gate.res;
     const me = gate.user;
 
-    const { convoyId } = await request.json();
-    if (!convoyId) return NextResponse.json({ error: 'حدّد القافلة' }, { status: 400 });
+    const bodyJson = await request.json();
+    const { convoyId, courseId } = bodyJson;
+
+    // ---- التسجيل الذاتي في دورة تدريبية ----
+    if (courseId) {
+      const course = await prisma.trainingCourse.findUnique({ where: { id: courseId } });
+      if (!course) return NextResponse.json({ error: 'الدورة غير موجودة' }, { status: 404 });
+      if (new Date(course.date) < new Date()) {
+        return NextResponse.json({ error: 'انتهى موعد هذه الدورة' }, { status: 400 });
+      }
+      const already = await prisma.trainingAttendance.findUnique({
+        where: { courseId_volunteerId: { courseId, volunteerId: me.id } },
+      });
+      if (already) return NextResponse.json({ error: 'أنت مسجّل في هذه الدورة بالفعل' }, { status: 400 });
+
+      await prisma.trainingAttendance.create({
+        data: { courseId, volunteerId: me.id, attended: false, passed: false },
+      });
+      await notifyRoles(ADMIN_NOTIFY_ROLES, {
+        title: 'تسجيل جديد في دورة تدريبية',
+        body: `${me.name} سجّل في: ${course.title}`,
+        type: 'GENERAL',
+        link: '/training',
+      }, { governorate: null });
+      return NextResponse.json({ success: true, message: 'تم تسجيلك في الدورة، بانتظار اعتماد الإدارة' });
+    }
+
+    if (!convoyId) return NextResponse.json({ error: 'حدّد القافلة أو الدورة' }, { status: 400 });
 
     const convoy = await prisma.convoy.findUnique({ where: { id: convoyId } });
     if (!convoy) return NextResponse.json({ error: 'القافلة غير موجودة' }, { status: 404 });

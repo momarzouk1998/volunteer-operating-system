@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireRole } from '@/lib/auth';
 import { createNotification } from '@/lib/notify';
+import { recalcVolunteer } from '@/lib/volunteerBalance';
 
 // سحب / إلغاء شهادة أو تكريم (مع خصم النقاط الممنوحة معها)
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -16,7 +17,6 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     prisma.reward.delete({ where: { id } }),
     ...(reward.points > 0
       ? [
-          prisma.user.update({ where: { id: reward.volunteerId }, data: { totalPoints: { decrement: reward.points } } }),
           prisma.pointsLedger.create({
             data: {
               volunteerId: reward.volunteerId,
@@ -32,6 +32,8 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
       data: { userId: gate.user.id, userName: gate.user.name, action: 'DELETE', entity: 'Reward', entityId: id, details: `سحب ${reward.type} بكود ${reward.code}` },
     }),
   ]);
+
+  if (reward.points > 0) await recalcVolunteer(reward.volunteerId);
 
   await createNotification({
     userId: reward.volunteerId,

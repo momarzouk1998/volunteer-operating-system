@@ -5,29 +5,40 @@ import Link from 'next/link';
 import { Award, QrCode, Search, CheckCircle, ExternalLink, Printer, Trash2 } from 'lucide-react';
 import { toast, confirmDialog } from '@/lib/ui';
 import { SkeletonList } from '@/components/Skeleton';
+import Pagination from '@/components/Pagination';
 
 export default function CertificatesPage() {
   const [certificates, setCertificates] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
 
-  const fetchCerts = async () => {
+  const fetchCerts = async (goPage = page) => {
     setLoading(true);
     try {
-      const res = await fetch('/api/certificates');
+      const res = await fetch(`/api/certificates?search=${encodeURIComponent(search)}&page=${goPage}&pageSize=20`);
       const data = await res.json();
       if (data.success) {
         setCertificates(data.certificates);
+        setTotalPages(data.totalPages || 1);
+        setTotal(data.total || 0);
       }
-    } catch (err) {
-      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
+  const prev = React.useRef(search);
   useEffect(() => {
-    fetchCerts();
-  }, []);
+    if (prev.current !== search) {
+      prev.current = search;
+      if (page !== 1) { setPage(1); return; }
+    }
+    fetchCerts(page);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, page]);
 
   const handleRevoke = async (cert: any) => {
     if (!(await confirmDialog({ title: `سحب "${cert.type}"`, message: `الكود ${cert.code} — سيتم خصم النقاط الممنوحة معها من رصيد المتطوع.`, danger: true, confirmText: 'سحب' }))) return;
@@ -54,12 +65,23 @@ export default function CertificatesPage() {
         </p>
       </div>
 
+      <div className="relative flex items-center max-w-md">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="بحث بالكود، اسم المتطوع، نوع التكريم..."
+          className="w-full pl-3 pr-9 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-primary text-xs outline-none shadow-xs"
+        />
+        <Search className="w-4 h-4 text-slate-400 absolute right-3 pointer-events-none" />
+      </div>
+
       <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
         {loading ? (
           <SkeletonList rows={5} />
         ) : certificates.length === 0 ? (
-          <div className="p-12 text-center text-slate-400 text-xs">لا توجد شهادات صادرة حالياً. يمكنك منح شهادة من صفحة بروفايل أي متطوع.</div>
+          <div className="p-12 text-center text-slate-400 text-xs">لا توجد شهادات مطابقة. يمكنك منح شهادة من ملف أي متطوع.</div>
         ) : (
+          <>
           <div className="divide-y divide-slate-100">
             {certificates.map((cert) => (
               <div key={cert.id} className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50/50 transition-colors">
@@ -97,6 +119,10 @@ export default function CertificatesPage() {
               </div>
             ))}
           </div>
+          <div className="border-t border-slate-100">
+            <Pagination page={page} totalPages={totalPages} total={total} onChange={setPage} />
+          </div>
+          </>
         )}
       </div>
     </div>

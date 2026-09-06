@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { getCurrentUser, requireRole } from '@/lib/auth';
 import { isScopedRole } from '@/lib/rbac';
 import { buildUserSearchText } from '@/lib/format';
+import { recalcVolunteer } from '@/lib/volunteerBalance';
+import { getNumberSetting } from '@/lib/settings';
 
 export async function GET(
   request: Request,
@@ -54,11 +56,41 @@ export async function GET(
       return NextResponse.json({ error: 'هذا المتطوع خارج نطاق محافظتك' }, { status: 403 });
     }
 
-    return NextResponse.json({ success: true, volunteer });
+    // حالة النشاط (مشتقّة، منفصلة عن حالة العضوية)
+    const inactiveDays = await getNumberSetting('INACTIVE_DAYS_LIMIT');
+    const cutoff = Date.now() - inactiveDays * 86400000;
+    const activity =
+      volunteer.lastActiveDate && new Date(volunteer.lastActiveDate).getTime() >= cutoff ? 'نشط' : 'خامل';
+
+    return NextResponse.json({ success: true, volunteer: { ...volunteer, activity } });
   } catch (err: any) {
     console.error('Error getting volunteer 360:', err);
     return NextResponse.json({ error: 'خطأ في جلب ملف المتطوع' }, { status: 500 });
   }
+}
+
+// إعادة احتساب رصيد المتطوع من مصادر الحقيقة
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const gate = await requireRole(['SUPER_ADMIN', 'VOLUNTEER_MANAGER', 'GOVERNORATE_LEAD']);
+  if (!gate.ok) return gate.res;
+  const { id } = await params;
+  const body = await request.json().catch(() => ({}));
+  if (body.action !== 'RECALC') return NextResponse.json({ error: 'إجراء غير معروف' }, { status: 400 });
+
+  const v = await prisma.user.findUnique({ where: { id }, select: { id: true, name: true, governorate: true } });
+  if (!v) return NextResponse.json({ error: 'المتطوع غير موجود' }, { status: 404 });
+  if (isScopedRole(gate.user.role) && gate.user.governorate && v.governorate !== gate.user.governorate) {
+    return NextResponse.json({ error: 'خارج نطاق محافظتك' }, { status: 403 });
+  }
+
+  const bal = await recalcVolunteer(id);
+  await prisma.auditLog.create({
+    data: { userId: gate.user.id, userName: gate.user.name, action: 'RECALC', entity: 'Volunteer', entityId: id, details: `إعادة احتساب رصيد ${v.name}: ${bal.totalHours} ساعة، ${bal.totalPoints} نقطة، ${bal.level}` },
+  });
+  return NextResponse.json({ success: true, message: 'تمت إعادة احتساب الرصيد', balance: bal });
 }
 
 export async function PUT(

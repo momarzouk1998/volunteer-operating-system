@@ -7,12 +7,14 @@ import {
   ChevronLeft, Filter, Search, Clock, Pencil, Trash2
 } from 'lucide-react';
 import { useLists } from '@/lib/useLists';
+import { useMe } from '@/lib/useMe';
 import { toast, confirmDialog } from '@/lib/ui';
 import { SkeletonCards } from '@/components/Skeleton';
 import NumberInput from '@/components/NumberInput';
 
 export default function ConvoysPage() {
   const { lists } = useLists();
+  const { isManager } = useMe();
   const [convoys, setConvoys] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [governorate, setGovernorate] = useState('الكل');
@@ -187,9 +189,11 @@ export default function ConvoysPage() {
                     <button onClick={() => openEdit(c)} className="flex-1 px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-[11px] font-bold flex items-center justify-center gap-1">
                       <Pencil className="w-3.5 h-3.5 text-primary" /> تعديل
                     </button>
-                    <button onClick={() => handleDeleteConvoy(c)} className="flex-1 px-3 py-1.5 rounded-xl bg-white border border-rose-200 hover:bg-rose-50 text-rose-600 text-[11px] font-bold flex items-center justify-center gap-1">
-                      <Trash2 className="w-3.5 h-3.5" /> حذف
-                    </button>
+                    {isManager && (
+                      <button onClick={() => handleDeleteConvoy(c)} className="flex-1 px-3 py-1.5 rounded-xl bg-white border border-rose-200 hover:bg-rose-50 text-rose-600 text-[11px] font-bold flex items-center justify-center gap-1">
+                        <Trash2 className="w-3.5 h-3.5" /> حذف
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

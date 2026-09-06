@@ -86,6 +86,21 @@ export default async function DashboardPage() {
     take: 6,
   });
 
+  // 5. مؤشرات إضافية (SRS §24)
+  const staleCutoff = new Date(Date.now() - 60 * 86400000);
+  const overdueCutoff = new Date(Date.now() - 7 * 86400000);
+  const [staleActive, overdueApps, retentionOpen, convoyNeed] = await Promise.all([
+    prisma.user.count({ where: { status: 'ACTIVE', lastActiveDate: { lt: staleCutoff } } }),
+    prisma.application.count({ where: { status: { in: ['NEW', 'UNDER_REVIEW'] }, createdAt: { lt: overdueCutoff } } }),
+    prisma.retentionRecord.count({ where: { status: { in: ['قيد المتابعة', 'معتذر مؤقتاً'] } } }),
+    prisma.convoy.findMany({
+      where: { status: { in: ['PLANNED', 'IN_PROGRESS'] } },
+      orderBy: { startDate: 'asc' },
+      take: 5,
+      select: { id: true, code: true, title: true, governorate: true, startDate: true, requiredCount: true, confirmedCount: true },
+    }),
+  ]);
+
   return (
     <div className="space-y-6">
       {/* Welcome Banner */}
@@ -210,6 +225,48 @@ export default async function DashboardPage() {
           <span className="text-[11px] text-rose-700 font-semibold mt-1">بانتظار الفرز والمقابلة</span>
         </div>
       </div>
+
+      {/* مؤشرات التنبيه (تحتاج إجراء) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="rounded-2xl p-4 bg-amber-50 border border-amber-200">
+          <div className="text-xs font-bold text-amber-800">متطوعون نشطون بلا مشاركة &gt; 60 يوم</div>
+          <div className="text-2xl font-black text-amber-700 mt-1">{staleActive}</div>
+          <Link href="/retention" className="text-[11px] font-bold text-amber-700 hover:underline">مركز الاستعادة ←</Link>
+        </div>
+        <div className="rounded-2xl p-4 bg-rose-50 border border-rose-200">
+          <div className="text-xs font-bold text-rose-800">طلبات تطوع متأخرة &gt; 7 أيام</div>
+          <div className="text-2xl font-black text-rose-700 mt-1">{overdueApps}</div>
+          <Link href="/applications?status=NEW" className="text-[11px] font-bold text-rose-700 hover:underline">مراجعة الطلبات ←</Link>
+        </div>
+        <div className="rounded-2xl p-4 bg-sky-50 border border-sky-200">
+          <div className="text-xs font-bold text-sky-800">حالات استعادة مفتوحة</div>
+          <div className="text-2xl font-black text-sky-700 mt-1">{retentionOpen}</div>
+          <Link href="/retention" className="text-[11px] font-bold text-sky-700 hover:underline">متابعة ←</Link>
+        </div>
+      </div>
+
+      {/* احتياج القوافل القادمة */}
+      {convoyNeed.length > 0 && (
+        <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-xs">
+          <h2 className="text-base font-extrabold text-slate-900 mb-3">احتياج القوافل القادمة</h2>
+          <div className="divide-y divide-slate-100">
+            {convoyNeed.map((c) => {
+              const shortage = Math.max(0, c.requiredCount - c.confirmedCount);
+              return (
+                <div key={c.id} className="py-2.5 flex items-center justify-between text-xs">
+                  <div className="min-w-0">
+                    <Link href={`/convoys/${c.id}`} className="font-bold text-slate-900 hover:text-primary truncate">{c.title}</Link>
+                    <span className="text-[10px] text-slate-400 block">{c.governorate} • {new Date(c.startDate).toISOString().split('T')[0]}</span>
+                  </div>
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${shortage > 0 ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                    {shortage > 0 ? `عجز ${shortage}` : 'مكتمل'} ({c.confirmedCount}/{c.requiredCount})
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Two Column Layout: Convoys & Top Volunteers */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
