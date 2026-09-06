@@ -146,6 +146,7 @@ export async function PUT(
         name: application.fullName,
         nationalId: application.nationalId || existing?.nationalId || null,
         dob: application.dob || existing?.dob || null,
+        gender: application.gender || existing?.gender || null,
         whatsapp: application.whatsapp || existing?.whatsapp || application.phone,
         email: application.email || existing?.email || null,
         governorate: application.governorate || existing?.governorate || 'الجيزة',

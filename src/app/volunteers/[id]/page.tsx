@@ -588,6 +588,10 @@ export default function VolunteerDetailPage() {
                 <span className="font-bold text-slate-800 font-mono">{volunteer.nationalId || 'غير مسجل'}</span>
               </div>
               <div>
+                <span className="text-slate-400 block font-semibold">النوع</span>
+                <span className="font-bold text-slate-800">{volunteer.gender || 'غير مسجل'}</span>
+              </div>
+              <div>
                 <span className="text-slate-400 block font-semibold">رقم الهاتف</span>
                 <span className="font-bold text-slate-800 font-mono" dir="ltr">{volunteer.phone}</span>
               </div>

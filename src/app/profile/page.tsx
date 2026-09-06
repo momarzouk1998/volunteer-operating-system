@@ -466,6 +466,7 @@ export default function ProfilePage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
               <Field label="الاسم رباعي" value={v.name} />
               <Field label="الرقم القومي" value={v.nationalId} mono />
+              <Field label="النوع" value={v.gender} />
               <Field label="رقم الهاتف" value={v.phone} mono ltr />
               <Field label="واتساب" value={v.whatsapp || v.phone} mono ltr />
               <Field label="المحافظة والمدينة" value={`${v.governorate || '-'}${v.city ? ' - ' + v.city : ''}`} />

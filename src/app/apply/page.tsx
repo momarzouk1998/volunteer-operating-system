@@ -5,7 +5,7 @@ import { CheckCircle, ArrowLeft } from 'lucide-react';
 import { EGYPT_GOVERNORATES, ARABIC_NAME_RE, EG_PHONE_RE, NATIONAL_ID_RE } from '@/lib/egypt';
 
 const EMPTY = {
-  fullName: '', nationalId: '', dob: '', phone: '', whatsapp: '', email: '',
+  fullName: '', nationalId: '', gender: '', dob: '', phone: '', whatsapp: '', email: '',
   governorate: '', city: '', address: '', qualification: '', major: '',
   skills: '', preferredFields: '', emergencyContact: '',
   volunteeredBefore: 'no', prevOrg: '', prevRole: '',
@@ -32,6 +32,7 @@ export default function ApplyPage() {
     if (!ARABIC_NAME_RE.test(f.fullName.trim())) return 'الاسم يجب أن يكون بالحروف العربية فقط';
     if (f.fullName.trim().split(/\s+/).length < 2) return 'يرجى إدخال الاسم كاملاً';
     if (!NATIONAL_ID_RE.test(f.nationalId)) return 'الرقم القومي يجب أن يكون 14 رقماً بالضبط';
+    if (f.gender !== 'ذكر' && f.gender !== 'أنثى') return 'يرجى تحديد النوع (ذكر / أنثى)';
     if (!f.dob) return 'تاريخ الميلاد مطلوب';
     if (!EG_PHONE_RE.test(f.phone)) return 'رقم الهاتف غير صحيح (11 رقماً يبدأ بـ 010/011/012/015)';
     if (!EG_PHONE_RE.test(f.whatsapp)) return 'رقم الواتساب غير صحيح (11 رقماً)';
@@ -117,6 +118,14 @@ export default function ApplyPage() {
                   onChange={(e) => set('nationalId', e.target.value.replace(/\D/g, '').slice(0, 14))}
                   placeholder="14 رقماً" className={`${input} font-mono`} dir="ltr" />
               </div>
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">النوع *</label>
+                <div className="flex items-center gap-4 px-1 py-2">
+                  <label className="flex items-center gap-1.5"><input type="radio" name="gender" checked={f.gender === 'ذكر'} onChange={() => set('gender', 'ذكر')} /> ذكر</label>
+                  <label className="flex items-center gap-1.5"><input type="radio" name="gender" checked={f.gender === 'أنثى'} onChange={() => set('gender', 'أنثى')} /> أنثى</label>
+                </div>
+              </div>
+
               <div>
                 <label className="block font-bold text-slate-700 mb-1">تاريخ الميلاد *</label>
                 <input type="date" required value={f.dob} onChange={(e) => set('dob', e.target.value)} className={input} dir="ltr" />

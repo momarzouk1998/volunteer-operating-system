@@ -66,7 +66,7 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const {
-      fullName, nationalId, dob, phone, whatsapp, email, governorate, city, address,
+      fullName, nationalId, gender, dob, phone, whatsapp, email, governorate, city, address,
       qualification, major, skills, preferredFields, emergencyContact,
       volunteeredBefore, prevOrg, prevRole, source, notes,
     } = body;
@@ -86,6 +86,9 @@ export async function POST(request: Request) {
     }
     if (!NATIONAL_ID_RE.test(String(nationalId))) {
       return NextResponse.json({ error: 'الرقم القومي يجب أن يكون 14 رقماً' }, { status: 400 });
+    }
+    if (gender !== 'ذكر' && gender !== 'أنثى') {
+      return NextResponse.json({ error: 'يرجى تحديد النوع (ذكر / أنثى)' }, { status: 400 });
     }
     if (!EG_PHONE_RE.test(String(phone)) || !EG_PHONE_RE.test(String(whatsapp))) {
       return NextResponse.json({ error: 'رقم الهاتف/الواتساب غير صحيح (11 رقماً مصرياً)' }, { status: 400 });
@@ -123,6 +126,7 @@ export async function POST(request: Request) {
         code: newCode,
         fullName,
         nationalId: String(nationalId),
+        gender,
         dob: new Date(dob),
         phone: cleanPhone,
         whatsapp: normalizePhone(whatsapp),

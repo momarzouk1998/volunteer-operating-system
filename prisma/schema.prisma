@@ -57,6 +57,7 @@ model User {
   volunteerCode   String?          @unique // KAS-00001
   nationalId      String?          @unique // 14 رقم
   dob             DateTime?
+  gender          String?          // ذكر / أنثى
   nationality     String?          @default("مصري")
   governorate     String?          @default("الجيزة")
   city            String?
@@ -145,6 +146,7 @@ model Application {
   fullName        String
   nationalId      String?
   dob             DateTime?
+  gender          String?           // ذكر / أنثى
   phone           String
   whatsapp        String?
   email           String?
