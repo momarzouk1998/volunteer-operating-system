@@ -8,6 +8,23 @@ import {
   Star, Award, GraduationCap, Printer, TrendingUp, Sparkles, ShieldCheck,
 } from 'lucide-react';
 import { getStatusBadge, getRankBadge, formatDate, calcAge, buildTimeline } from '@/lib/utils';
+import { toast } from '@/lib/ui';
+
+const SELF_FIELDS: { key: string; label: string; type?: string }[] = [
+  { key: 'whatsapp', label: 'واتساب' },
+  { key: 'email', label: 'البريد الإلكتروني', type: 'email' },
+  { key: 'city', label: 'المركز / المدينة' },
+  { key: 'address', label: 'العنوان بالتفصيل' },
+  { key: 'dob', label: 'تاريخ الميلاد', type: 'date' },
+  { key: 'qualification', label: 'المؤهل الدراسي' },
+  { key: 'major', label: 'التخصص' },
+  { key: 'jobTitle', label: 'المهنة' },
+  { key: 'workplace', label: 'جهة العمل / الدراسة' },
+  { key: 'emergencyContact', label: 'جهة اتصال الطوارئ' },
+  { key: 'availableDays', label: 'الأيام المتاحة' },
+  { key: 'skills', label: 'المهارات والخبرات' },
+  { key: 'preferredFields', label: 'المجالات المفضلة' },
+];
 
 const RANKS = [
   { min: 0, title: 'عضو واعد' },
@@ -42,6 +59,44 @@ export default function ProfilePage() {
   const [passLoading, setPassLoading] = useState(false);
   const [passMsg, setPassMsg] = useState('');
   const [passError, setPassError] = useState('');
+
+  // تعديل البيانات الشخصية
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState<Record<string, string>>({});
+  const [editSaving, setEditSaving] = useState(false);
+
+  const openSelfEdit = () => {
+    const f: Record<string, string> = {};
+    SELF_FIELDS.forEach(({ key, type }) => {
+      const val = data?.[key];
+      f[key] = type === 'date' && val ? String(val).slice(0, 10) : val || '';
+    });
+    setEditForm(f);
+    setEditOpen(true);
+  };
+
+  const handleSelfEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEditSaving(true);
+    try {
+      const res = await fetch('/api/me', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editForm),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || 'فشل التحديث');
+      toast('تم تحديث بياناتك', 'success');
+      setEditOpen(false);
+      // إعادة تحميل الملف
+      const me = await fetch('/api/me').then((r) => r.json());
+      if (me.success) { setData(me.volunteer); setStats(me.stats); }
+    } catch (err: any) {
+      toast(err.message, 'error');
+    } finally {
+      setEditSaving(false);
+    }
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -334,9 +389,16 @@ export default function ProfilePage() {
           </div>
 
           <div className="lg:col-span-2 bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-xs space-y-5">
-            <h3 className="text-sm font-extrabold text-slate-900 border-b border-slate-100 pb-3">
-              📋 بياناتي الشخصية والميدانية
-            </h3>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-sm font-extrabold text-slate-900">📋 بياناتي الشخصية والميدانية</h3>
+              <button
+                onClick={openSelfEdit}
+                className="px-3 py-1.5 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-white text-xs font-bold flex items-center gap-1.5 transition-colors border border-primary/20"
+              >
+                <User className="w-3.5 h-3.5" />
+                <span>تعديل بياناتي</span>
+              </button>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
               <Field label="الاسم رباعي" value={v.name} />
               <Field label="الرقم القومي" value={v.nationalId} mono />
@@ -363,8 +425,36 @@ export default function ProfilePage() {
               )}
             </div>
             <p className="text-[10px] text-slate-400 pt-2 border-t border-slate-100">
-              لتعديل بياناتك الأساسية تواصل مع إدارة المتطوعين.
+              الاسم والرقم القومي ورقم الهاتف والفريق والمستوى يعدّلها فريق إدارة المتطوعين فقط.
             </p>
+          </div>
+        </div>
+      )}
+
+      {editOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full p-6 my-8 space-y-4 animate-in fade-in zoom-in-95">
+            <h3 className="text-base font-extrabold text-slate-900">تعديل بياناتي الشخصية</h3>
+            <form onSubmit={handleSelfEdit} className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              {SELF_FIELDS.map(({ key, label, type }) => (
+                <div key={key} className={key === 'skills' || key === 'preferredFields' || key === 'address' ? 'sm:col-span-2' : ''}>
+                  <label className="block font-bold text-slate-700 mb-1">{label}</label>
+                  <input
+                    type={type || 'text'}
+                    dir={type === 'email' || key === 'whatsapp' ? 'ltr' : undefined}
+                    value={editForm[key] || ''}
+                    onChange={(e) => setEditForm({ ...editForm, [key]: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 outline-none focus:border-primary"
+                  />
+                </div>
+              ))}
+              <div className="sm:col-span-2 flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button type="button" onClick={() => setEditOpen(false)} className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-bold">إلغاء</button>
+                <button type="submit" disabled={editSaving} className="px-5 py-2 rounded-xl bg-primary text-white font-bold disabled:opacity-50">
+                  {editSaving ? 'جاري الحفظ...' : 'حفظ التعديلات'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

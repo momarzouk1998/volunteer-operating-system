@@ -58,7 +58,7 @@ export function UiHost() {
   return (
     <>
       {/* Toasts */}
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] flex flex-col items-center gap-2 w-[92vw] max-w-sm">
+      <div className="pointer-events-none fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] flex flex-col items-center gap-2 w-[92vw] max-w-sm">
         {toasts.map((t) => {
           const Icon = t.type === 'success' ? CheckCircle : t.type === 'error' ? AlertTriangle : Info;
           const color =
@@ -70,7 +70,7 @@ export function UiHost() {
           return (
             <div
               key={t.id}
-              className={`${color} text-white text-xs font-bold px-4 py-3 rounded-2xl shadow-lg flex items-center gap-2 w-full animate-in fade-in slide-in-from-bottom-2`}
+              className={`pointer-events-auto ${color} text-white text-xs font-bold px-4 py-3 rounded-2xl shadow-lg flex items-center gap-2 w-full animate-in fade-in slide-in-from-bottom-2`}
             >
               <Icon className="w-4 h-4 flex-shrink-0" />
               <span className="flex-1">{t.message}</span>

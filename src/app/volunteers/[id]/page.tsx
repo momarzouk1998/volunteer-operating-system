@@ -18,7 +18,12 @@ export default function VolunteerDetailPage() {
 
   const [volunteer, setVolunteer] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [myRole, setMyRole] = useState<string>('');
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
+
+  const canManage = myRole === 'SUPER_ADMIN' || myRole === 'VOLUNTEER_MANAGER' || myRole === 'GOVERNORATE_LEAD';
+  const canCertify = myRole === 'SUPER_ADMIN' || myRole === 'VOLUNTEER_MANAGER';
+  const canDelete = myRole === 'SUPER_ADMIN';
   const [activeTab, setActiveTab] = useState<'pass' | 'timeline' | 'attendance' | 'points' | 'evaluations' | 'certificates'>('pass');
 
   const [evalModal, setEvalModal] = useState(false);
@@ -67,6 +72,13 @@ export default function VolunteerDetailPage() {
     if (id) fetchVolunteer();
   }, [id]);
 
+  useEffect(() => {
+    fetch('/api/me')
+      .then((r) => r.json())
+      .then((d) => { if (d.success) setMyRole(d.volunteer?.role || ''); })
+      .catch(() => {});
+  }, []);
+
   const handleSaveEvaluation = async (e: React.FormEvent) => {
     e.preventDefault();
     setEvalSaving(true);
@@ -84,12 +96,12 @@ export default function VolunteerDetailPage() {
         }),
       });
       const data = await res.json();
-      if (data.success) {
-        setEvalModal(false);
-        fetchVolunteer();
-      }
-    } catch (err) {
-      console.error(err);
+      if (!res.ok || !data.success) throw new Error(data.error || 'فشل تسجيل التقييم');
+      toast(data.message || 'تم تسجيل التقييم', 'success');
+      setEvalModal(false);
+      fetchVolunteer();
+    } catch (err: any) {
+      toast(err.message || 'حدث خطأ أثناء حفظ التقييم', 'error');
     } finally {
       setEvalSaving(false);
     }
@@ -159,12 +171,12 @@ export default function VolunteerDetailPage() {
         }),
       });
       const data = await res.json();
-      if (data.success) {
-        setCertModal(false);
-        fetchVolunteer();
-      }
-    } catch (err) {
-      console.error(err);
+      if (!res.ok || !data.success) throw new Error(data.error || 'فشل إصدار الشهادة');
+      toast(data.message || 'تم إصدار الشهادة', 'success');
+      setCertModal(false);
+      fetchVolunteer();
+    } catch (err: any) {
+      toast(err.message || 'حدث خطأ أثناء إصدار الشهادة', 'error');
     } finally {
       setCertSaving(false);
     }
@@ -206,13 +218,15 @@ export default function VolunteerDetailPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={openEdit}
-            className="px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 shadow-xs flex items-center gap-1.5 transition-colors"
-          >
-            <Pencil className="w-4 h-4 text-primary" />
-            <span>تعديل البيانات</span>
-          </button>
+          {canManage && (
+            <button
+              onClick={openEdit}
+              className="px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 shadow-xs flex items-center gap-1.5 transition-colors"
+            >
+              <Pencil className="w-4 h-4 text-primary" />
+              <span>تعديل البيانات</span>
+            </button>
+          )}
           <button
             onClick={() => setEvalModal(true)}
             className="px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 shadow-xs flex items-center gap-1.5 transition-colors"
@@ -220,21 +234,25 @@ export default function VolunteerDetailPage() {
             <Star className="w-4 h-4 text-amber-500" />
             <span>تقييم الأداء</span>
           </button>
-          <button
-            onClick={() => setCertModal(true)}
-            className="px-3.5 py-2 rounded-xl bg-primary hover:bg-primary-dark text-white text-xs font-bold shadow-md shadow-primary/20 flex items-center gap-1.5 transition-all"
-          >
-            <Award className="w-4 h-4" />
-            <span>منح شهادة / تكريم</span>
-          </button>
-          <button
-            onClick={handleDelete}
-            disabled={deleting || volunteer.status === 'EXCLUDED'}
-            className="px-3.5 py-2 rounded-xl bg-white border border-rose-200 hover:bg-rose-50 text-xs font-bold text-rose-600 shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-40"
-          >
-            <Trash2 className="w-4 h-4" />
-            <span>{volunteer.status === 'EXCLUDED' ? 'مستبعد' : deleting ? '...' : 'استبعاد'}</span>
-          </button>
+          {canCertify && (
+            <button
+              onClick={() => setCertModal(true)}
+              className="px-3.5 py-2 rounded-xl bg-primary hover:bg-primary-dark text-white text-xs font-bold shadow-md shadow-primary/20 flex items-center gap-1.5 transition-all"
+            >
+              <Award className="w-4 h-4" />
+              <span>منح شهادة / تكريم</span>
+            </button>
+          )}
+          {canDelete && (
+            <button
+              onClick={handleDelete}
+              disabled={deleting || volunteer.status === 'EXCLUDED'}
+              className="px-3.5 py-2 rounded-xl bg-white border border-rose-200 hover:bg-rose-50 text-xs font-bold text-rose-600 shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-40"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>{volunteer.status === 'EXCLUDED' ? 'مستبعد' : deleting ? '...' : 'استبعاد'}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -615,12 +633,14 @@ export default function VolunteerDetailPage() {
         <div className="bg-white rounded-3xl border border-slate-200 shadow-xs p-5 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-extrabold text-slate-900">الشهادات المعتمدة وأوسمة التكريم</h3>
-            <button
-              onClick={() => setCertModal(true)}
-              className="px-3 py-1.5 rounded-xl bg-primary text-white text-xs font-bold shadow-xs"
-            >
-              + منح شهادة جديدة
-            </button>
+            {canCertify && (
+              <button
+                onClick={() => setCertModal(true)}
+                className="px-3 py-1.5 rounded-xl bg-primary text-white text-xs font-bold shadow-xs"
+              >
+                + منح شهادة جديدة
+              </button>
+            )}
           </div>
           {volunteer.rewards?.length === 0 ? (
             <div className="p-8 text-center text-slate-400 text-xs">لا توجد شهادات صادرة حتى الآن.</div>
