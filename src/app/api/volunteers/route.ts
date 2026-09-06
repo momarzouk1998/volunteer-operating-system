@@ -1,13 +1,12 @@
 ﻿import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getCurrentUser, hashPassword, normalizePhone } from '@/lib/auth';
+import { hashPassword, normalizePhone, requireRole, governorateScope } from '@/lib/auth';
 
 export async function GET(request: Request) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
+    const gate = await requireRole(['SUPER_ADMIN', 'VOLUNTEER_MANAGER', 'GOVERNORATE_LEAD', 'TEAM_LEADER']);
+    if (!gate.ok) return gate.res;
+    const scope = governorateScope(gate.user);
 
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search') || '';
@@ -18,6 +17,7 @@ export async function GET(request: Request) {
 
     const whereClause: any = {
       role: { not: 'SUPER_ADMIN' },
+      ...scope,
     };
 
     if (search) {
@@ -29,7 +29,7 @@ export async function GET(request: Request) {
       ];
     }
 
-    if (governorate && governorate !== 'الكل') {
+    if (governorate && governorate !== 'الكل' && !scope.governorate) {
       whereClause.governorate = governorate;
     }
 
@@ -84,10 +84,9 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
+    const gate = await requireRole(['SUPER_ADMIN', 'VOLUNTEER_MANAGER']);
+    if (!gate.ok) return gate.res;
+    const user = gate.user;
 
     const body = await request.json();
     const {

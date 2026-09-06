@@ -49,7 +49,7 @@ export default function AppLayout({
           {children}
         </main>
 
-        <MobileBottomNav />
+        <MobileBottomNav currentUser={currentUser} />
       </div>
     </div>
   );

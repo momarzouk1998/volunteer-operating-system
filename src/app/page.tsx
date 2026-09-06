@@ -29,6 +29,9 @@ export default async function DashboardPage() {
   if (!currentUser) {
     redirect('/login');
   }
+  if (currentUser.role === 'VOLUNTEER') {
+    redirect('/profile');
+  }
 
   // 1. الإحصائيات العامة
   const totalVolunteers = await prisma.user.count({

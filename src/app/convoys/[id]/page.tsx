@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   Truck, Calendar, MapPin, Users, ChevronRight, CheckCircle,
-  Clock, Plus, ShieldCheck, AlertCircle, FileText, UserPlus
+  Clock, Plus, ShieldCheck, AlertCircle, FileText, UserPlus, X
 } from 'lucide-react';
 
 export default function ConvoyDetailPage() {
@@ -98,8 +98,25 @@ export default function ConvoyDetailPage() {
     }
   };
 
+  const resolveJoin = async (taskId: string, decision: 'ACCEPT' | 'REJECT') => {
+    try {
+      const res = await fetch(`/api/convoys/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'RESOLVE_JOIN', taskId, decision }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'فشل تنفيذ الإجراء');
+      fetchConvoy();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
   if (loading) return <div className="p-12 text-center text-slate-400 text-xs">جاري تحميل تفاصيل القافلة...</div>;
   if (!convoy) return <div className="p-12 text-center text-slate-400 text-xs">القافلة غير موجودة.</div>;
+
+  const joinRequests = (convoy.tasks || []).filter((t: any) => t.status === 'طلب انضمام');
 
   return (
     <div className="space-y-6">
@@ -162,6 +179,38 @@ export default function ConvoyDetailPage() {
               </div>
             </div>
           </div>
+
+          {/* Join Requests from volunteers */}
+          {joinRequests.length > 0 && (
+            <div className="bg-white rounded-3xl p-6 border border-amber-200 shadow-xs space-y-3">
+              <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+                <UserPlus className="w-4 h-4 text-amber-500" />
+                طلبات انضمام بانتظار الموافقة ({joinRequests.length})
+              </h3>
+              <div className="divide-y divide-slate-100">
+                {joinRequests.map((t: any) => (
+                  <div key={t.id} className="py-3 flex items-center justify-between text-xs gap-3">
+                    <div className="min-w-0">
+                      <Link href={`/volunteers/${t.volunteer?.id}`} className="font-bold text-slate-900 hover:text-primary">
+                        {t.volunteer?.name}
+                      </Link>
+                      <span className="text-[10px] text-slate-400 block">
+                        {t.volunteer?.volunteerCode} • {t.volunteer?.governorate} • {t.volunteer?.phone}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button onClick={() => resolveJoin(t.id, 'ACCEPT')} className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1">
+                        <CheckCircle className="w-3.5 h-3.5" /> قبول
+                      </button>
+                      <button onClick={() => resolveJoin(t.id, 'REJECT')} className="px-3 py-1.5 rounded-xl bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 font-bold flex items-center gap-1">
+                        <X className="w-3.5 h-3.5" /> رفض
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Assigned Volunteers Roster */}
           <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs space-y-4">

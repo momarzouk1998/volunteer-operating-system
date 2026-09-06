@@ -1,16 +1,35 @@
 ﻿import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getCurrentUser, hashPassword } from '@/lib/auth';
+import { hashPassword, requireRole } from '@/lib/auth';
+import { createNotification } from '@/lib/notify';
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const gate = await requireRole(['SUPER_ADMIN', 'VOLUNTEER_MANAGER']);
+  if (!gate.ok) return gate.res;
+  const { id } = await params;
+  const app = await prisma.application.findUnique({ where: { id } });
+  if (!app) return NextResponse.json({ error: 'الطلب غير موجود' }, { status: 404 });
+  if (app.status === 'ACCEPTED') {
+    return NextResponse.json({ error: 'لا يمكن حذف طلب تم اعتماده وتحويله لعضوية' }, { status: 400 });
+  }
+  await prisma.application.delete({ where: { id } });
+  await prisma.auditLog.create({
+    data: { userId: gate.user.id, userName: gate.user.name, action: 'DELETE', entity: 'Application', entityId: id, details: `حذف طلب تطوع ${app.code} — ${app.fullName}` },
+  });
+  return NextResponse.json({ success: true });
+}
 
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
+    const gate = await requireRole(['SUPER_ADMIN', 'VOLUNTEER_MANAGER']);
+    if (!gate.ok) return gate.res;
+    const user = gate.user;
 
     const { id } = await params;
     const body = await request.json();
@@ -35,6 +54,16 @@ export async function PUT(
           notes: notes || application.notes,
         },
       });
+
+      const interviewee = await prisma.user.findFirst({ where: { phone: application.phone } });
+      if (interviewee) {
+        await createNotification({
+          userId: interviewee.id,
+          title: 'تم تحديد موعد مقابلتك',
+          body: `موعد المقابلة: ${new Date(interviewDate).toLocaleString('ar-EG')}`,
+          type: 'INTERVIEW',
+        });
+      }
 
       return NextResponse.json({ success: true, message: 'تم تحديد موعد المقابلة بنجاح', application: updated });
     }
@@ -110,14 +139,18 @@ export async function PUT(
             volunteerCode: volCode,
             name: application.fullName,
             nationalId: application.nationalId || null,
+            dob: application.dob || null,
             phone: application.phone,
             whatsapp: application.whatsapp || application.phone,
+            email: application.email || null,
             governorate: application.governorate,
             city: application.city || null,
+            address: application.address || null,
             qualification: application.qualification || null,
             major: application.major || null,
             skills: application.skills || null,
             preferredFields: application.preferredFields || null,
+            emergencyContact: application.emergencyContact || null,
             status: 'ACTIVE',
             level: 'متطوع جديد',
             teamName: 'فريق الإغاثة الميدانية',
@@ -147,6 +180,16 @@ export async function PUT(
         },
       });
 
+      if (existingUser) {
+        await createNotification({
+          userId: existingUser.id,
+          title: 'تم قبولك في أسرة المتطوعين 🎉',
+          body: `كود عضويتك ${volCode}. سجّل الدخول برقم هاتفك وكلمة المرور المؤقتة 123456 وغيّرها من صفحة ملفي.`,
+          type: 'APPLICATION',
+          link: '/profile',
+        });
+      }
+
       return NextResponse.json({
         success: true,
         message: `تم اعتماد المتطوع بنجاح وإصدار كود العضوية: ${volCode}`,
@@ -166,6 +209,17 @@ export async function PUT(
           notes: notes || application.notes,
         },
       });
+
+      const rejected = await prisma.user.findFirst({ where: { phone: application.phone } });
+      if (rejected) {
+        await createNotification({
+          userId: rejected.id,
+          title: 'تحديث بخصوص طلب التطوع',
+          body: 'نعتذر، لم يُقبل طلبك حالياً. يمكنك التواصل مع إدارة المتطوعين لمزيد من التفاصيل.',
+          type: 'APPLICATION',
+        });
+      }
+
       return NextResponse.json({ success: true, message: 'تم تحديث حالة الطلب إلى مرفوض', application: updated });
     }
 

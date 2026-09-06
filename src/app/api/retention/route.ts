@@ -1,25 +1,29 @@
 ﻿import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/auth';
+import { requireRole, governorateScope } from '@/lib/auth';
+import { getNumberSetting } from '@/lib/settings';
+
+const RETENTION_ROLES = ['SUPER_ADMIN', 'VOLUNTEER_MANAGER', 'GOVERNORATE_LEAD'] as const;
 
 export async function GET(request: Request) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
+    const gate = await requireRole([...RETENTION_ROLES]);
+    if (!gate.ok) return gate.res;
+    const scope = governorateScope(gate.user);
 
-    // المتطوعون غير النشطين أو من تجاوزوا 60 يوم دون مشاركة
-    const sixtyDaysAgo = new Date();
-    sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+    // حد أيام عدم النشاط قابل للتعديل من الإعدادات
+    const inactivityDays = await getNumberSetting('INACTIVE_DAYS_LIMIT');
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - inactivityDays);
 
     const inactiveVolunteers = await prisma.user.findMany({
       where: {
         role: { not: 'SUPER_ADMIN' },
+        ...scope,
         OR: [
           { status: 'DISCONTINUED' },
           { status: 'INACTIVE' },
-          { lastActiveDate: { lte: sixtyDaysAgo } },
+          { lastActiveDate: { lte: cutoff } },
         ],
       },
       orderBy: { lastActiveDate: 'asc' },
@@ -40,10 +44,9 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
+    const gate = await requireRole([...RETENTION_ROLES]);
+    if (!gate.ok) return gate.res;
+    const user = gate.user;
 
     const body = await request.json();
     const {

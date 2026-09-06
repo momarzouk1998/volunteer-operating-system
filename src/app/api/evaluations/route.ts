@@ -1,13 +1,13 @@
 ﻿import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/auth';
+import { requireRole } from '@/lib/auth';
+import { createNotification } from '@/lib/notify';
 
 export async function POST(request: Request) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
+    const gate = await requireRole(['SUPER_ADMIN', 'VOLUNTEER_MANAGER', 'GOVERNORATE_LEAD', 'TEAM_LEADER']);
+    if (!gate.ok) return gate.res;
+    const user = gate.user;
 
     const body = await request.json();
     const {
@@ -53,6 +53,14 @@ export async function POST(request: Request) {
     await prisma.user.update({
       where: { id: volunteerId },
       data: { rating: newAvg },
+    });
+
+    await createNotification({
+      userId: volunteerId,
+      title: 'تم تسجيل تقييم أداء جديد لك',
+      body: `المعدل: ${overall}/5`,
+      type: 'GENERAL',
+      link: '/profile',
     });
 
     return NextResponse.json({

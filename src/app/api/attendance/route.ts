@@ -1,13 +1,15 @@
 ﻿import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/auth';
+import { requireRole } from '@/lib/auth';
+import { getNumberSetting } from '@/lib/settings';
+import { createNotification } from '@/lib/notify';
+
+const FIELD_ROLES = ['SUPER_ADMIN', 'VOLUNTEER_MANAGER', 'GOVERNORATE_LEAD', 'TEAM_LEADER'] as const;
 
 export async function GET(request: Request) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
+    const gate = await requireRole([...FIELD_ROLES]);
+    if (!gate.ok) return gate.res;
 
     const { searchParams } = new URL(request.url);
     const convoyId = searchParams.get('convoyId');
@@ -53,10 +55,8 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
+    const gate = await requireRole([...FIELD_ROLES]);
+    if (!gate.ok) return gate.res;
 
     const body = await request.json();
     const {
@@ -78,8 +78,10 @@ export async function POST(request: Request) {
     const count = await prisma.attendanceRecord.count();
     const code = `ATT-2026-${String(count + 1).padStart(4, '0')}`;
 
-    // حساب النقاط التقديرية (10 نقاط لكل ساعة + 50 نقطة لو قافلة كاملة)
-    const points = numHours * 10 + (convoyId ? 50 : 0);
+    // حساب النقاط التقديرية وفق قواعد النقاط القابلة للتعديل من الإعدادات
+    const perHour = await getNumberSetting('POINTS_PER_HOUR');
+    const convoyBonus = await getNumberSetting('POINTS_FULL_CONVOY');
+    const points = numHours * perHour + (convoyId ? convoyBonus : 0);
 
     const record = await prisma.attendanceRecord.create({
       data: {
@@ -111,10 +113,9 @@ export async function POST(request: Request) {
 // اعتماد الساعات والنقاط (Approval Workflow)
 export async function PUT(request: Request) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
+    const gate = await requireRole([...FIELD_ROLES]);
+    if (!gate.ok) return gate.res;
+    const user = gate.user;
 
     const body = await request.json();
     const { attendanceId } = body;
@@ -175,6 +176,15 @@ export async function PUT(request: Request) {
         entityId: record.id,
         details: `اعتماد ${record.hours} ساعة و ${record.points} نقطة للمتطوع ${record.volunteer.name}`,
       },
+    });
+
+    // 5. إشعار المتطوع
+    await createNotification({
+      userId: record.volunteerId,
+      title: 'تم اعتماد مشاركتك',
+      body: `${record.activityName}: +${record.hours} ساعة و +${record.points} نقطة`,
+      type: 'ATTENDANCE',
+      link: '/profile',
     });
 
     return NextResponse.json({

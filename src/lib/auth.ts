@@ -1,7 +1,10 @@
 ﻿import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { cookies } from 'next/headers';
+import { NextResponse } from 'next/server';
 import { prisma } from './prisma';
+import type { Role } from './rbac';
+import { isScopedRole } from './rbac';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'vos-secret-key-2026-khwater-ahla-shabab';
 
@@ -82,4 +85,36 @@ export async function getCurrentUser() {
   } catch (err) {
     return null;
   }
+}
+
+type CurrentUser = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>;
+
+export type RoleGate =
+  | { ok: true; user: CurrentUser }
+  | { ok: false; res: NextResponse };
+
+/**
+ * حارس صلاحيات لمسارات الـ API — يُفحص على الخادم لا على الواجهة.
+ * الاستخدام:  const gate = await requireRole(['SUPER_ADMIN']); if (!gate.ok) return gate.res;
+ */
+export async function requireRole(roles: Role[] | 'ANY_AUTH'): Promise<RoleGate> {
+  const user = await getCurrentUser();
+  if (!user) {
+    return { ok: false, res: NextResponse.json({ error: 'غير مصرح، يجب تسجيل الدخول' }, { status: 401 }) };
+  }
+  if (roles !== 'ANY_AUTH' && !roles.includes(user.role as Role)) {
+    return { ok: false, res: NextResponse.json({ error: 'ليس لديك صلاحية لهذا الإجراء' }, { status: 403 }) };
+  }
+  return { ok: true, user };
+}
+
+/**
+ * قيد نطاق المحافظة: مسؤول المحافظة وقائد الفريق يريان محافظتهم فقط.
+ * يعيد شرط where جزئي يُدمج مع بقية الفلاتر.
+ */
+export function governorateScope(user: { role: string; governorate?: string | null }) {
+  if (isScopedRole(user.role) && user.governorate) {
+    return { governorate: user.governorate };
+  }
+  return {};
 }

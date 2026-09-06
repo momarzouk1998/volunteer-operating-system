@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   RotateCcw, Phone, Calendar, CheckCircle, MessageSquare,
-  AlertTriangle, Users, ArrowRight, Clock
+  AlertTriangle, Users, ArrowRight, Clock, Trash2
 } from 'lucide-react';
 
 export default function RetentionPage() {
@@ -38,6 +38,18 @@ export default function RetentionPage() {
   useEffect(() => {
     fetchRetention();
   }, []);
+
+  const handleDeleteRecord = async (recId: string) => {
+    if (!confirm('حذف سجل المتابعة هذا؟')) return;
+    try {
+      const res = await fetch(`/api/retention/${recId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'فشل الحذف');
+      fetchRetention();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
 
   const handleSaveContact = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,8 +121,17 @@ export default function RetentionPage() {
                     <span>الرصيد التراكمي: {vol.totalHours} ساعة • {vol.totalPoints} نقطة</span>
                   </div>
                   {vol.retentionRecords && vol.retentionRecords[0] && (
-                    <div className="text-[11px] text-blue-700 bg-blue-50 p-2 rounded-xl mt-1">
-                      آخر نتيجة تواصل: <strong>{vol.retentionRecords[0].contactOutcome}</strong> (الإجراء التالي: {vol.retentionRecords[0].nextAction})
+                    <div className="text-[11px] text-blue-700 bg-blue-50 p-2 rounded-xl mt-1 flex items-start justify-between gap-2">
+                      <span>
+                        آخر نتيجة تواصل: <strong>{vol.retentionRecords[0].contactOutcome}</strong> (الإجراء التالي: {vol.retentionRecords[0].nextAction})
+                      </span>
+                      <button
+                        onClick={() => handleDeleteRecord(vol.retentionRecords[0].id)}
+                        title="حذف سجل المتابعة"
+                        className="text-rose-500 hover:bg-rose-100 rounded-lg p-1 flex-shrink-0"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   )}
                 </div>

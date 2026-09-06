@@ -390,6 +390,23 @@ async function main() {
     });
   }
 
+  // القوائم المنسدلة القابلة للتعديل (category = LIST)
+  const defaultLists = [
+    { key: 'LIST_LEVELS', description: 'مستويات المتطوع', values: ['متطوع جديد', 'متطوع ملتزم', 'متميز', 'قائد فريق', 'قائد قافلة', 'قائد محافظة'] },
+    { key: 'LIST_CONVOY_TYPES', description: 'أنواع القوافل', values: ['قافلة إغاثية', 'قافلة طبية', 'قافلة إطعام', 'معرض كساء', 'تجهيز عرائس', 'حملة توعية'] },
+    { key: 'LIST_TASK_TYPES', description: 'أنواع المهام', values: ['توزيع وإغاثة', 'فرز وتعبئة', 'لجنة طبية', 'تنظيم وحشد', 'توثيق وإعلام', 'دعم لوجستي'] },
+    { key: 'LIST_TRAINING_TYPES', description: 'أنواع التدريب', values: ['تأهيل متطوعين جدد', 'إسعافات أولية', 'مهارات القيادة والتنظيم', 'التوثيق وصناعة المحتوى', 'إدارة الأزمات'] },
+    { key: 'LIST_REWARD_TYPES', description: 'أنواع التقدير والشهادات', values: ['شهادة تقدير وتكريم', 'درع التميز والعطاء', 'وسام متطوع الشهر', 'شهادة اجتياز دورة قيادية'] },
+    { key: 'LIST_SOURCES', description: 'مصادر التعرف على الجمعية', values: ['الموقع الإلكتروني', 'صفحة الفيسبوك', 'ترشيح صديق', 'فعالية ميدانية', 'أخرى'] },
+  ];
+  for (const l of defaultLists) {
+    await prisma.systemSetting.upsert({
+      where: { key: l.key },
+      update: {},
+      create: { key: l.key, value: JSON.stringify(l.values), category: 'LIST', description: l.description },
+    });
+  }
+
   console.log('✅ اكتمل بذر البيانات بنجاح تام!');
 }
 

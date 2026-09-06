@@ -1,13 +1,12 @@
 ﻿import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getCurrentUser, normalizePhone } from '@/lib/auth';
+import { normalizePhone, requireRole } from '@/lib/auth';
+import { notifyRoles, ADMIN_NOTIFY_ROLES } from '@/lib/notify';
 
 export async function GET(request: Request) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
+    const gate = await requireRole(['SUPER_ADMIN', 'VOLUNTEER_MANAGER']);
+    if (!gate.ok) return gate.res;
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
@@ -31,14 +30,18 @@ export async function POST(request: Request) {
     const {
       fullName,
       nationalId,
+      dob,
       phone,
       whatsapp,
+      email,
       governorate,
       city,
+      address,
       qualification,
       major,
       skills,
       preferredFields,
+      emergencyContact,
       source,
       notes,
     } = body;
@@ -56,18 +59,29 @@ export async function POST(request: Request) {
         code: newCode,
         fullName,
         nationalId: nationalId || null,
+        dob: dob ? new Date(dob) : null,
         phone: cleanPhone,
         whatsapp: whatsapp ? normalizePhone(whatsapp) : cleanPhone,
+        email: email || null,
         governorate,
         city: city || null,
+        address: address || null,
         qualification: qualification || null,
         major: major || null,
         skills: skills || null,
         preferredFields: preferredFields || null,
+        emergencyContact: emergencyContact || null,
         source: source || 'الموقع الإلكتروني',
         notes: notes || null,
       },
     });
+
+    await notifyRoles(ADMIN_NOTIFY_ROLES, {
+      title: 'طلب تطوع جديد',
+      body: `${fullName} — ${governorate} (${newCode})`,
+      type: 'APPLICATION',
+      link: '/applications',
+    }, { governorate: null });
 
     return NextResponse.json({
       success: true,

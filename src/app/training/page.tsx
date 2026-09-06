@@ -2,13 +2,16 @@
 
 import React, { useState, useEffect } from 'react';
 import {
-  GraduationCap, Plus, Calendar, Users, Award, CheckCircle, Clock
+  GraduationCap, Plus, Calendar, Users, Award, CheckCircle, Clock, Pencil, Trash2
 } from 'lucide-react';
+import { useLists } from '@/lib/useLists';
 
 export default function TrainingPage() {
+  const { lists } = useLists();
   const [courses, setCourses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -41,24 +44,54 @@ export default function TrainingPage() {
     fetchCourses();
   }, []);
 
-  const handleCreateCourse = async (e: React.FormEvent) => {
+  const openCreate = () => {
+    setEditingId(null);
+    setFormData({ title: '', type: lists.trainingTypes[0] || 'تأهيل متطوعين جدد', trainer: '', date: '', hours: 4, isLeadershipPrereq: false, location: 'مقر الجمعية بالمهندسين', notes: '' });
+    setIsModalOpen(true);
+  };
+
+  const openEdit = (c: any) => {
+    setEditingId(c.id);
+    setFormData({
+      title: c.title || '', type: c.type || '', trainer: c.trainer || '',
+      date: c.date ? new Date(c.date).toISOString().slice(0, 16) : '',
+      hours: c.hours || 4, isLeadershipPrereq: !!c.isLeadershipPrereq,
+      location: c.location || '', notes: c.notes || '',
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleSubmitCourse = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await fetch('/api/training', {
-        method: 'POST',
+      const url = editingId ? `/api/training/${editingId}` : '/api/training';
+      const res = await fetch(url, {
+        method: editingId ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
       const data = await res.json();
-      if (data.success) {
-        setIsModalOpen(false);
-        fetchCourses();
-      }
-    } catch (err) {
-      console.error(err);
+      if (!res.ok) throw new Error(data.error || 'فشل الحفظ');
+      setIsModalOpen(false);
+      setEditingId(null);
+      fetchCourses();
+    } catch (err: any) {
+      alert(err.message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDeleteCourse = async (c: any) => {
+    if (!confirm(`حذف الدورة "${c.title}"؟`)) return;
+    try {
+      const res = await fetch(`/api/training/${c.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'فشل الحذف');
+      fetchCourses();
+    } catch (err: any) {
+      alert(err.message);
     }
   };
 
@@ -76,7 +109,7 @@ export default function TrainingPage() {
         </div>
 
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={openCreate}
           className="px-4 py-2.5 rounded-xl bg-primary hover:bg-primary-dark text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-primary/20 transition-all"
         >
           <Plus className="w-4 h-4" />
@@ -111,6 +144,15 @@ export default function TrainingPage() {
                 <p>المكان: {c.location}</p>
                 <p>عدد الحضور المسجلين: <strong className="text-primary">{c._count?.attendances || 0} متطوع</strong></p>
               </div>
+
+              <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                <button onClick={() => openEdit(c)} className="flex-1 px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-[11px] font-bold flex items-center justify-center gap-1">
+                  <Pencil className="w-3.5 h-3.5 text-primary" /> تعديل
+                </button>
+                <button onClick={() => handleDeleteCourse(c)} className="flex-1 px-3 py-1.5 rounded-xl bg-white border border-rose-200 hover:bg-rose-50 text-rose-600 text-[11px] font-bold flex items-center justify-center gap-1">
+                  <Trash2 className="w-3.5 h-3.5" /> حذف
+                </button>
+              </div>
             </div>
           ))
         )}
@@ -119,8 +161,8 @@ export default function TrainingPage() {
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in-95">
-            <h3 className="text-base font-extrabold text-slate-900">إنشاء دورة تدريبية وتأهيل</h3>
-            <form onSubmit={handleCreateCourse} className="space-y-3 text-xs">
+            <h3 className="text-base font-extrabold text-slate-900">{editingId ? 'تعديل دورة تدريبية' : 'إنشاء دورة تدريبية وتأهيل'}</h3>
+            <form onSubmit={handleSubmitCourse} className="space-y-3 text-xs">
               <div>
                 <label className="block font-bold text-slate-700 mb-1">اسم الدورة *</label>
                 <input
@@ -141,10 +183,9 @@ export default function TrainingPage() {
                     onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-200"
                   >
-                    <option value="تأهيل متطوعين جدد">تأهيل متطوعين جدد</option>
-                    <option value="إسعافات أولية">إسعافات أولية</option>
-                    <option value="مهارات القيادة والتنظيم">مهارات القيادة والتنظيم</option>
-                    <option value="التوثيق وصناعة المحتوى">التوثيق وصناعة المحتوى</option>
+                    {(lists.trainingTypes.length ? lists.trainingTypes : [formData.type]).map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
                   </select>
                 </div>
                 <div>

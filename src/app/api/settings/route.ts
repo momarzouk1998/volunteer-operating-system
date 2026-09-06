@@ -1,15 +1,15 @@
 ﻿import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/auth';
+import { requireRole } from '@/lib/auth';
+import { ensureDefaultSettings } from '@/lib/settings';
 
 export async function GET() {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
+    const gate = await requireRole(['SUPER_ADMIN', 'VOLUNTEER_MANAGER']);
+    if (!gate.ok) return gate.res;
 
-    const settings = await prisma.systemSetting.findMany();
+    await ensureDefaultSettings();
+    const settings = await prisma.systemSetting.findMany({ orderBy: { category: 'asc' } });
     const governorates = await prisma.governorate.findMany();
     const teams = await prisma.team.findMany();
 
@@ -22,10 +22,9 @@ export async function GET() {
 
 export async function PUT(request: Request) {
   try {
-    const user = await getCurrentUser();
-    if (!user || user.role !== 'SUPER_ADMIN') {
-      return NextResponse.json({ error: 'غير مصرح بالتعديل، صلاحية المدير العام مطلوبة' }, { status: 403 });
-    }
+    const gate = await requireRole(['SUPER_ADMIN']);
+    if (!gate.ok) return gate.res;
+    const user = gate.user;
 
     const body = await request.json();
     const { settings } = body;

@@ -1,16 +1,15 @@
 ﻿import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser, requireRole } from '@/lib/auth';
+import { isScopedRole } from '@/lib/rbac';
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
+    const gate = await requireRole(['SUPER_ADMIN', 'VOLUNTEER_MANAGER', 'GOVERNORATE_LEAD', 'TEAM_LEADER']);
+    if (!gate.ok) return gate.res;
 
     const { id } = await params;
     const volunteer = await prisma.user.findFirst({
@@ -49,6 +48,11 @@ export async function GET(
       return NextResponse.json({ error: 'المتطوع غير موجود' }, { status: 404 });
     }
 
+    // قيد نطاق المحافظة
+    if (isScopedRole(gate.user.role) && gate.user.governorate && volunteer.governorate !== gate.user.governorate) {
+      return NextResponse.json({ error: 'هذا المتطوع خارج نطاق محافظتك' }, { status: 403 });
+    }
+
     return NextResponse.json({ success: true, volunteer });
   } catch (err: any) {
     console.error('Error getting volunteer 360:', err);
@@ -61,10 +65,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
+    const gate = await requireRole(['SUPER_ADMIN', 'VOLUNTEER_MANAGER', 'GOVERNORATE_LEAD']);
+    if (!gate.ok) return gate.res;
+    const user = gate.user;
 
     const { id } = await params;
     const body = await request.json();

@@ -1,14 +1,15 @@
 ﻿import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/auth';
+import { requireRole } from '@/lib/auth';
+import { createNotification } from '@/lib/notify';
 import crypto from 'crypto';
+
+const CERT_ROLES = ['SUPER_ADMIN', 'VOLUNTEER_MANAGER'] as const;
 
 export async function GET() {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
+    const gate = await requireRole([...CERT_ROLES]);
+    if (!gate.ok) return gate.res;
 
     const certificates = await prisma.reward.findMany({
       orderBy: { issuedAt: 'desc' },
@@ -34,10 +35,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
+    const gate = await requireRole([...CERT_ROLES]);
+    if (!gate.ok) return gate.res;
+    const user = gate.user;
 
     const body = await request.json();
     const { volunteerId, type, reason, points, notes } = body;
@@ -91,6 +91,14 @@ export async function POST(request: Request) {
         entityId: reward.id,
         details: `إصدار ${type} بكود ${code} للمتطوع ${reward.volunteer.name}`,
       },
+    });
+
+    await createNotification({
+      userId: volunteerId,
+      title: `تم منحك ${type} 🏅`,
+      body: reason,
+      type: 'CERTIFICATE',
+      link: '/profile',
     });
 
     return NextResponse.json({

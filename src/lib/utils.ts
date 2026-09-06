@@ -19,6 +19,82 @@ export function formatDateTime(date: string | Date | null | undefined): string {
   return `${d.toISOString().split('T')[0]} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
+export function calcAge(dob: string | Date | null | undefined): number | null {
+  if (!dob) return null;
+  const d = typeof dob === 'string' ? new Date(dob) : dob;
+  if (isNaN(d.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
+  return age >= 0 && age < 130 ? age : null;
+}
+
+export interface TimelineEvent {
+  date: string;
+  kind: 'attendance' | 'points' | 'evaluation' | 'certificate' | 'training' | 'retention';
+  title: string;
+  detail?: string;
+}
+
+/** يدمج كل أحداث المتطوع في خط زمني موحّد مرتّب تنازلياً بالتاريخ. */
+export function buildTimeline(v: any): TimelineEvent[] {
+  const ev: TimelineEvent[] = [];
+
+  (v?.attendances || []).forEach((a: any) => {
+    ev.push({
+      date: a.date,
+      kind: 'attendance',
+      title: `مشاركة: ${a.activityName}`,
+      detail: `${a.hours} ساعة • ${a.approved ? 'معتمد' : 'قيد الاعتماد'}`,
+    });
+  });
+  (v?.pointsLedger || []).forEach((p: any) => {
+    ev.push({
+      date: p.createdAt,
+      kind: 'points',
+      title: p.reason || 'حركة نقاط',
+      detail: `${p.points >= 0 ? '+' : ''}${p.points} نقطة`,
+    });
+  });
+  (v?.evaluationsReceived || []).forEach((e: any) => {
+    ev.push({
+      date: e.evaluationDate || e.createdAt,
+      kind: 'evaluation',
+      title: `تقييم أداء من ${e.evaluatorName || 'المشرف'}`,
+      detail: `المعدل ${e.overallScore}/5`,
+    });
+  });
+  (v?.rewards || []).forEach((r: any) => {
+    ev.push({
+      date: r.issuedAt,
+      kind: 'certificate',
+      title: `${r.type}`,
+      detail: r.reason,
+    });
+  });
+  (v?.trainingAttendances || []).forEach((t: any) => {
+    ev.push({
+      date: t.course?.date || t.createdAt,
+      kind: 'training',
+      title: `تدريب: ${t.course?.title || 'دورة'}`,
+      detail: t.passed ? 'اجتاز' : 'لم يجتز',
+    });
+  });
+  (v?.retentionRecords || []).forEach((rr: any) => {
+    ev.push({
+      date: rr.lastContact || rr.createdAt,
+      kind: 'retention',
+      title: 'متابعة استعادة',
+      detail: rr.contactOutcome || rr.status,
+    });
+  });
+
+  return ev
+    .filter((e) => e.date)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+}
+
 export function getStatusBadge(status: string) {
   switch (status) {
     case 'ACTIVE':

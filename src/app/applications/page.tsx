@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   UserPlus, Search, Calendar, CheckCircle, XCircle, Clock,
-  Filter, Eye, MessageSquare, Star, ArrowRight, Check
+  Filter, Eye, MessageSquare, Star, ArrowRight, Check, Trash2
 } from 'lucide-react';
 
 export default function ApplicationsPage() {
@@ -120,6 +120,18 @@ export default function ApplicationsPage() {
       }
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleDelete = async (appId: string) => {
+    if (!confirm('حذف هذا الطلب نهائياً من السجل؟')) return;
+    try {
+      const res = await fetch(`/api/applications/${appId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'فشل الحذف');
+      fetchApps();
+    } catch (err: any) {
+      alert(err.message);
     }
   };
 
@@ -256,6 +268,15 @@ export default function ApplicationsPage() {
                         رفض
                       </button>
                     </>
+                  )}
+                  {app.status !== 'ACCEPTED' && (
+                    <button
+                      onClick={() => handleDelete(app.id)}
+                      title="حذف الطلب"
+                      className="px-2.5 py-1.5 rounded-xl bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-bold flex items-center gap-1 transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   )}
                 </div>
               </div>

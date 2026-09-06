@@ -115,6 +115,22 @@ model User {
   rewardsIssued       Reward[]           @relation("RewardIssuer")
   auditLogs           AuditLog[]
   interviewsConducted Interview[]
+  notifications       Notification[]
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String?
+  type      String   @default("GENERAL") // APPLICATION / INTERVIEW / ASSIGNMENT / ATTENDANCE / POINTS / CERTIFICATE / RETENTION / GENERAL
+  link      String?
+  read      Boolean  @default(false)
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
 }
 
 model Application {
@@ -122,14 +138,18 @@ model Application {
   code            String            @unique // APP-2026-XXXXX
   fullName        String
   nationalId      String?
+  dob             DateTime?
   phone           String
   whatsapp        String?
+  email           String?
   governorate     String
   city            String?
+  address         String?
   qualification   String?
   major           String?
   skills          String?
   preferredFields String?
+  emergencyContact String?
   source          String?           @default("الموقع الإلكتروني")
   status          ApplicationStatus @default(NEW)
   interviewDate   DateTime?

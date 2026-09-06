@@ -43,7 +43,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-6 sm:p-8 relative z-10 border border-slate-100">
         {/* Header Branding */}
         <div className="text-center mb-6">
-          <div className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-primary to-navy-royal p-2 shadow-lg mb-3 flex items-center justify-center">
+          <div className="w-20 h-20 mx-auto rounded-2xl bg-white border border-slate-200 p-2 shadow-lg mb-3 flex items-center justify-center">
             <img
               src="/images/logo.png"
               alt="جمعية خواطر أحلى شباب"

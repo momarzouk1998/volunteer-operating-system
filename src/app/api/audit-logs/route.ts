@@ -1,13 +1,11 @@
 ﻿import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/auth';
+import { requireRole } from '@/lib/auth';
 
 export async function GET() {
   try {
-    const user = await getCurrentUser();
-    if (!user || user.role !== 'SUPER_ADMIN') {
-      return NextResponse.json({ error: 'صلاحية المدير العام مطلوبة للاطلاع على سجل التدقيق' }, { status: 403 });
-    }
+    const gate = await requireRole(['SUPER_ADMIN']);
+    if (!gate.ok) return gate.res;
 
     const logs = await prisma.auditLog.findMany({
       orderBy: { createdAt: 'desc' },

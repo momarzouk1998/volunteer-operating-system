@@ -1,26 +1,45 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { HeartHandshake, CheckCircle, ArrowLeft, Phone, User, MapPin } from 'lucide-react';
+
+const FALLBACK_GOVS = [
+  'القاهرة', 'الجيزة', 'القليوبية', 'الإسكندرية', 'المنيا',
+  'مطروح', 'بني سويف', 'الفيوم', 'أسيوط', 'سوهاج', 'قنا', 'الأقصر', 'أسوان',
+];
 
 export default function ApplyPage() {
   const [formData, setFormData] = useState({
     fullName: '',
     nationalId: '',
+    dob: '',
     phone: '',
     whatsapp: '',
+    email: '',
     governorate: 'الجيزة',
     city: '',
+    address: '',
     qualification: '',
     major: '',
     skills: '',
     preferredFields: '',
+    emergencyContact: '',
     source: 'الموقع الإلكتروني',
   });
 
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [governoratesList, setGovernoratesList] = useState<string[]>(FALLBACK_GOVS);
+
+  useEffect(() => {
+    fetch('/api/public/lists')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.governorates?.length) setGovernoratesList(d.governorates);
+      })
+      .catch(() => {});
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,11 +64,6 @@ export default function ApplyPage() {
     }
   };
 
-  const governoratesList = [
-    'القاهرة', 'الجيزة', 'القليوبية', 'الإسكندرية', 'المنيا', 
-    'مطروح', 'بني سويف', 'الفيوم', 'أسيوط', 'سوهاج', 'قنا', 'الأقصر', 'أسوان'
-  ];
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-primary-dark to-navy-royal p-4 py-8 flex items-center justify-center">
       <div className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl p-6 sm:p-8 relative overflow-hidden">
@@ -73,6 +87,9 @@ export default function ApplyPage() {
             <h2 className="text-lg font-bold text-slate-900">{successMsg}</h2>
             <p className="text-xs text-slate-500">
               سيقوم فريق إدارة المتطوعين بمراجعة طلبك والتواصل معك لتحديد موعد المقابلة الشخصية.
+              بعد اعتماد طلبك، يمكنك الدخول للمنظومة برقم هاتفك وكلمة المرور المؤقتة
+              <strong className="text-primary font-mono"> 123456 </strong>
+              ثم تغييرها من صفحة «ملفي».
             </p>
             <a
               href="/login"
@@ -104,6 +121,17 @@ export default function ApplyPage() {
               </div>
 
               <div>
+                <label className="block font-bold text-slate-700 mb-1">تاريخ الميلاد</label>
+                <input
+                  type="date"
+                  value={formData.dob}
+                  onChange={(e) => setFormData({ ...formData, dob: e.target.value })}
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs outline-none"
+                  dir="ltr"
+                />
+              </div>
+
+              <div>
                 <label className="block font-bold text-slate-700 mb-1">رقم الهاتف *</label>
                 <input
                   type="tel"
@@ -123,6 +151,18 @@ export default function ApplyPage() {
                   value={formData.whatsapp}
                   onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
                   placeholder="01XXXXXXXXX"
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs outline-none font-mono"
+                  dir="ltr"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">البريد الإلكتروني</label>
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="name@example.com"
                   className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs outline-none font-mono"
                   dir="ltr"
                 />
@@ -149,6 +189,28 @@ export default function ApplyPage() {
                   value={formData.city}
                   onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                   placeholder="مثال: الدقي / ملوي / بنها"
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs outline-none"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block font-bold text-slate-700 mb-1">العنوان بالتفصيل</label>
+                <input
+                  type="text"
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  placeholder="الحي، الشارع، رقم العقار"
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs outline-none"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block font-bold text-slate-700 mb-1">جهة اتصال للطوارئ (اسم + رقم)</label>
+                <input
+                  type="text"
+                  value={formData.emergencyContact}
+                  onChange={(e) => setFormData({ ...formData, emergencyContact: e.target.value })}
+                  placeholder="مثال: والد المتطوع - 01XXXXXXXXX"
                   className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs outline-none"
                 />
               </div>

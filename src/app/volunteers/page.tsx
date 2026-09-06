@@ -20,6 +20,7 @@ import {
   IdCard,
 } from 'lucide-react';
 import { getStatusBadge } from '@/lib/utils';
+import { useLists } from '@/lib/useLists';
 import * as XLSX from 'xlsx';
 
 export default function VolunteersPage() {
@@ -132,15 +133,9 @@ export default function VolunteersPage() {
     XLSX.writeFile(wb, `سجل_المتطوعين_VOS_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
-  const governoratesList = [
-    'الكل', 'القاهرة', 'الجيزة', 'القليوبية', 'الإسكندرية', 'المنيا', 
-    'مطروح', 'بني سويف', 'الفيوم', 'أسيوط', 'سوهاج', 'قنا', 'الأقصر', 'أسوان'
-  ];
-
-  const teamsList = [
-    'الكل', 'فريق الإغاثة الميدانية', 'فريق القوافل الطبية', 'فريق الإطعام والوجبات', 
-    'فريق الإعلام والتوثيق', 'فريق الدعم اللوجستي', 'فريق إدارة المتطوعين', 'فريق الإسكان والإعمار'
-  ];
+  const { lists } = useLists();
+  const governoratesList = ['الكل', ...lists.governorates];
+  const teamsList = ['الكل', ...lists.teams];
 
   return (
     <div className="space-y-6">
@@ -483,12 +478,9 @@ export default function VolunteersPage() {
                     onChange={(e) => setFormData({ ...formData, level: e.target.value })}
                     className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-primary text-xs outline-none"
                   >
-                    <option value="متطوع جديد">متطوع جديد</option>
-                    <option value="متطوع ملتزم">متطوع ملتزم</option>
-                    <option value="متميز">متميز</option>
-                    <option value="قائد فريق">قائد فريق</option>
-                    <option value="قائد قافلة">قائد قافلة</option>
-                    <option value="قائد محافظة">قائد محافظة</option>
+                    {(lists.levels.length ? lists.levels : [formData.level]).map((l) => (
+                      <option key={l} value={l}>{l}</option>
+                    ))}
                   </select>
                 </div>
 

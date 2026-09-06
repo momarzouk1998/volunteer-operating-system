@@ -2,29 +2,42 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Award, QrCode, Search, CheckCircle, ExternalLink, Printer } from 'lucide-react';
+import { Award, QrCode, Search, CheckCircle, ExternalLink, Printer, Trash2 } from 'lucide-react';
 
 export default function CertificatesPage() {
   const [certificates, setCertificates] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchCerts = async () => {
-      setLoading(true);
-      try {
-        const res = await fetch('/api/certificates');
-        const data = await res.json();
-        if (data.success) {
-          setCertificates(data.certificates);
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
+  const fetchCerts = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/certificates');
+      const data = await res.json();
+      if (data.success) {
+        setCertificates(data.certificates);
       }
-    };
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchCerts();
   }, []);
+
+  const handleRevoke = async (cert: any) => {
+    if (!confirm(`سحب وإلغاء "${cert.type}" (${cert.code})؟ سيتم خصم النقاط الممنوحة معها.`)) return;
+    try {
+      const res = await fetch(`/api/certificates/${cert.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'فشل السحب');
+      fetchCerts();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -68,8 +81,15 @@ export default function CertificatesPage() {
                     className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
-                    <span>عرض وثيقة الشهادة</span>
+                    <span>عرض الوثيقة</span>
                   </Link>
+                  <button
+                    onClick={() => handleRevoke(cert)}
+                    className="px-3 py-2 rounded-xl bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-bold flex items-center gap-1.5 transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>سحب</span>
+                  </button>
                 </div>
               </div>
             ))}

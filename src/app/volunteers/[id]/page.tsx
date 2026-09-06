@@ -5,10 +5,11 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   User, Phone, MapPin, Award, Clock, Trophy, Calendar,
-  CheckCircle, Printer, IdCard, Star, ChevronRight, Download
+  CheckCircle, Printer, IdCard, Star, ChevronRight, Download, Pencil, Trash2, X
 } from 'lucide-react';
 import QRCode from 'qrcode';
-import { getStatusBadge, getRankBadge } from '@/lib/utils';
+import { getStatusBadge, getRankBadge, buildTimeline, calcAge, formatDate } from '@/lib/utils';
+import { useLists } from '@/lib/useLists';
 
 export default function VolunteerDetailPage() {
   const params = useParams();
@@ -17,7 +18,7 @@ export default function VolunteerDetailPage() {
   const [volunteer, setVolunteer] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'pass' | 'attendance' | 'points' | 'evaluations' | 'certificates'>('pass');
+  const [activeTab, setActiveTab] = useState<'pass' | 'timeline' | 'attendance' | 'points' | 'evaluations' | 'certificates'>('pass');
 
   const [evalModal, setEvalModal] = useState(false);
   const [commitment, setCommitment] = useState(5);
@@ -26,6 +27,12 @@ export default function VolunteerDetailPage() {
   const [behavior, setBehavior] = useState(5);
   const [evalNotes, setEvalNotes] = useState('');
   const [evalSaving, setEvalSaving] = useState(false);
+
+  const { lists } = useLists();
+  const [editModal, setEditModal] = useState(false);
+  const [editForm, setEditForm] = useState<any>({});
+  const [editSaving, setEditSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const [certModal, setCertModal] = useState(false);
   const [certType, setCertType] = useState('شهادة تقدير وتكريم');
@@ -84,6 +91,53 @@ export default function VolunteerDetailPage() {
       console.error(err);
     } finally {
       setEvalSaving(false);
+    }
+  };
+
+  const openEdit = () => {
+    setEditForm({
+      name: volunteer.name || '', nationalId: volunteer.nationalId || '', phone: volunteer.phone || '',
+      whatsapp: volunteer.whatsapp || '', email: volunteer.email || '', governorate: volunteer.governorate || '',
+      city: volunteer.city || '', address: volunteer.address || '', qualification: volunteer.qualification || '',
+      major: volunteer.major || '', jobTitle: volunteer.jobTitle || '', skills: volunteer.skills || '',
+      preferredFields: volunteer.preferredFields || '', teamName: volunteer.teamName || '', level: volunteer.level || '',
+      status: volunteer.status || 'ACTIVE', emergencyContact: volunteer.emergencyContact || '', notes: volunteer.notes || '',
+    });
+    setEditModal(true);
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEditSaving(true);
+    try {
+      const res = await fetch(`/api/volunteers/${volunteer.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editForm),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'فشل الحفظ');
+      setEditModal(false);
+      fetchVolunteer();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm(`تأكيد استبعاد المتطوع "${volunteer.name}"؟ سيتحول لحالة "مستبعد".`)) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/volunteers/${volunteer.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'فشل الاستبعاد');
+      fetchVolunteer();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -148,7 +202,14 @@ export default function VolunteerDetailPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={openEdit}
+            className="px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 shadow-xs flex items-center gap-1.5 transition-colors"
+          >
+            <Pencil className="w-4 h-4 text-primary" />
+            <span>تعديل البيانات</span>
+          </button>
           <button
             onClick={() => setEvalModal(true)}
             className="px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 shadow-xs flex items-center gap-1.5 transition-colors"
@@ -162,6 +223,14 @@ export default function VolunteerDetailPage() {
           >
             <Award className="w-4 h-4" />
             <span>منح شهادة / تكريم</span>
+          </button>
+          <button
+            onClick={handleDelete}
+            disabled={deleting || volunteer.status === 'EXCLUDED'}
+            className="px-3.5 py-2 rounded-xl bg-white border border-rose-200 hover:bg-rose-50 text-xs font-bold text-rose-600 shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-40"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span>{volunteer.status === 'EXCLUDED' ? 'مستبعد' : deleting ? '...' : 'استبعاد'}</span>
           </button>
         </div>
       </div>
@@ -226,6 +295,18 @@ export default function VolunteerDetailPage() {
         >
           <IdCard className="w-4 h-4" />
           <span>بطاقة الهوية الرقمية (Pass)</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('timeline')}
+          className={`px-4 py-2.5 rounded-2xl text-xs font-bold flex items-center gap-2 transition-all ${
+            activeTab === 'timeline'
+              ? 'bg-primary text-white shadow-md shadow-primary/20'
+              : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+          }`}
+        >
+          <Calendar className="w-4 h-4" />
+          <span>الخط الزمني</span>
         </button>
 
         <button
@@ -374,6 +455,20 @@ export default function VolunteerDetailPage() {
                 <span className="font-bold text-slate-800">{volunteer.governorate} - {volunteer.city || 'المركز الرئيسي'}</span>
               </div>
               <div>
+                <span className="text-slate-400 block font-semibold">تاريخ الميلاد / السن</span>
+                <span className="font-bold text-slate-800">
+                  {volunteer.dob ? `${formatDate(volunteer.dob)}${calcAge(volunteer.dob) != null ? ` — ${calcAge(volunteer.dob)} سنة` : ''}` : 'غير مسجل'}
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-400 block font-semibold">جهة اتصال الطوارئ</span>
+                <span className="font-bold text-slate-800">{volunteer.emergencyContact || 'غير مسجل'}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 block font-semibold">البريد الإلكتروني</span>
+                <span className="font-bold text-slate-800 font-mono" dir="ltr">{volunteer.email || 'غير مسجل'}</span>
+              </div>
+              <div>
                 <span className="text-slate-400 block font-semibold">المؤهل والتخصص</span>
                 <span className="font-bold text-slate-800">{volunteer.qualification || '-'} {volunteer.major ? `(${volunteer.major})` : ''}</span>
               </div>
@@ -387,6 +482,38 @@ export default function VolunteerDetailPage() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {activeTab === 'timeline' && (
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-xs p-5 space-y-4">
+          <h3 className="text-sm font-extrabold text-slate-900">الخط الزمني الموحّد لأحداث المتطوع</h3>
+          {(() => {
+            const events = buildTimeline(volunteer);
+            const colors: Record<string, string> = {
+              attendance: 'bg-primary', points: 'bg-amber-500', evaluation: 'bg-purple-500',
+              certificate: 'bg-amber-600', training: 'bg-emerald-500', retention: 'bg-rose-500',
+            };
+            if (events.length === 0) {
+              return <div className="p-8 text-center text-slate-400 text-xs">لا توجد أحداث مسجلة بعد.</div>;
+            }
+            return (
+              <ol className="relative border-r-2 border-slate-100 pr-4 space-y-4">
+                {events.map((e, i) => (
+                  <li key={i} className="relative">
+                    <span className={`absolute -right-[1.35rem] top-1 w-3 h-3 rounded-full ring-4 ring-white ${colors[e.kind] || 'bg-slate-400'}`} />
+                    <div className="text-xs">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-slate-900">{e.title}</span>
+                        <span className="text-[10px] text-slate-400 flex-shrink-0">{formatDate(e.date)}</span>
+                      </div>
+                      {e.detail && <p className="text-slate-500 text-[11px] mt-0.5">{e.detail}</p>}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            );
+          })()}
         </div>
       )}
 
@@ -522,6 +649,72 @@ export default function VolunteerDetailPage() {
         </div>
       )}
 
+      {editModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full p-6 space-y-4 animate-in fade-in zoom-in-95 relative my-8">
+            <button onClick={() => setEditModal(false)} className="absolute left-5 top-5 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center">
+              <X className="w-4 h-4" />
+            </button>
+            <h3 className="text-base font-extrabold text-slate-900">تعديل بيانات المتطوع</h3>
+            <form onSubmit={handleSaveEdit} className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              {[
+                ['name', 'الاسم رباعي'], ['nationalId', 'الرقم القومي'], ['phone', 'الهاتف'], ['whatsapp', 'واتساب'],
+                ['email', 'البريد'], ['city', 'المدينة'], ['address', 'العنوان'], ['qualification', 'المؤهل'],
+                ['major', 'التخصص'], ['jobTitle', 'المهنة'], ['emergencyContact', 'جهة الطوارئ'],
+              ].map(([k, label]) => (
+                <div key={k}>
+                  <label className="block font-bold text-slate-700 mb-1">{label}</label>
+                  <input value={editForm[k] || ''} onChange={(e) => setEditForm({ ...editForm, [k]: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200" />
+                </div>
+              ))}
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">المحافظة</label>
+                <select value={editForm.governorate || ''} onChange={(e) => setEditForm({ ...editForm, governorate: e.target.value })} className="w-full px-3 py-2 rounded-xl border border-slate-200">
+                  {lists.governorates.map((g) => <option key={g} value={g}>{g}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">الفريق</label>
+                <select value={editForm.teamName || ''} onChange={(e) => setEditForm({ ...editForm, teamName: e.target.value })} className="w-full px-3 py-2 rounded-xl border border-slate-200">
+                  {lists.teams.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">المستوى</label>
+                <select value={editForm.level || ''} onChange={(e) => setEditForm({ ...editForm, level: e.target.value })} className="w-full px-3 py-2 rounded-xl border border-slate-200">
+                  {lists.levels.map((l) => <option key={l} value={l}>{l}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">الحالة</label>
+                <select value={editForm.status || 'ACTIVE'} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })} className="w-full px-3 py-2 rounded-xl border border-slate-200">
+                  {lists.volunteerStatuses.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                </select>
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block font-bold text-slate-700 mb-1">المهارات</label>
+                <input value={editForm.skills || ''} onChange={(e) => setEditForm({ ...editForm, skills: e.target.value })} className="w-full px-3 py-2 rounded-xl border border-slate-200" />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block font-bold text-slate-700 mb-1">المجالات المفضلة</label>
+                <input value={editForm.preferredFields || ''} onChange={(e) => setEditForm({ ...editForm, preferredFields: e.target.value })} className="w-full px-3 py-2 rounded-xl border border-slate-200" />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block font-bold text-slate-700 mb-1">ملاحظات الإدارة</label>
+                <textarea rows={2} value={editForm.notes || ''} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} className="w-full px-3 py-2 rounded-xl border border-slate-200" />
+              </div>
+              <div className="sm:col-span-2 flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button type="button" onClick={() => setEditModal(false)} className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-bold">إلغاء</button>
+                <button type="submit" disabled={editSaving} className="px-5 py-2 rounded-xl bg-primary text-white font-bold disabled:opacity-50">
+                  {editSaving ? 'جاري الحفظ...' : 'حفظ التعديلات'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {evalModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in-95">
@@ -614,10 +807,9 @@ export default function VolunteerDetailPage() {
                   onChange={(e) => setCertType(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200"
                 >
-                  <option value="شهادة تقدير وتكريم">شهادة تقدير وتكريم</option>
-                  <option value="درع التميز والعطاء">درع التميز والعطاء</option>
-                  <option value="وسام متطوع الشهر">وسام متطوع الشهر</option>
-                  <option value="شهادة اجتياز دورة قيادية">شهادة اجتياز دورة قيادية</option>
+                  {(lists.rewardTypes.length ? lists.rewardTypes : [certType]).map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
                 </select>
               </div>
               <div>

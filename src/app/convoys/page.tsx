@@ -4,14 +4,17 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Truck, Plus, Calendar, MapPin, Users, AlertCircle, ShieldCheck,
-  ChevronLeft, Filter, Search, Clock
+  ChevronLeft, Filter, Search, Clock, Pencil, Trash2
 } from 'lucide-react';
+import { useLists } from '@/lib/useLists';
 
 export default function ConvoysPage() {
+  const { lists } = useLists();
   const [convoys, setConvoys] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [governorate, setGovernorate] = useState('الكل');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   // Form State
@@ -46,31 +49,56 @@ export default function ConvoysPage() {
     fetchConvoys();
   }, [governorate]);
 
-  const handleCreateConvoy = async (e: React.FormEvent) => {
+  const resetForm = () =>
+    setFormData({ title: '', type: lists.convoyTypes[0] || 'قافلة إغاثية', governorate: lists.governorates[0] || 'الجيزة', location: '', startDate: '', supervisor: '', requiredCount: 25, description: '' });
+
+  const openCreate = () => { setEditingId(null); resetForm(); setIsModalOpen(true); };
+
+  const openEdit = (c: any) => {
+    setEditingId(c.id);
+    setFormData({
+      title: c.title || '', type: c.type || '', governorate: c.governorate || '', location: c.location || '',
+      startDate: c.startDate ? new Date(c.startDate).toISOString().slice(0, 16) : '',
+      supervisor: c.supervisor || '', requiredCount: c.requiredCount || 20, description: c.description || '',
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleSubmitConvoy = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await fetch('/api/convoys', {
-        method: 'POST',
+      const url = editingId ? `/api/convoys/${editingId}` : '/api/convoys';
+      const res = await fetch(url, {
+        method: editingId ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(editingId ? { ...formData, status: undefined, confirmedCount: undefined } : formData),
       });
       const data = await res.json();
-      if (data.success) {
-        setIsModalOpen(false);
-        fetchConvoys();
-      }
-    } catch (err) {
-      console.error(err);
+      if (!res.ok) throw new Error(data.error || 'فشل الحفظ');
+      setIsModalOpen(false);
+      setEditingId(null);
+      fetchConvoys();
+    } catch (err: any) {
+      alert(err.message);
     } finally {
       setSaving(false);
     }
   };
 
-  const typesList = [
-    'قافلة إغاثية', 'قافلة طبية', 'إطعام وتوزيع وجبات', 'تركيب أسقف وبناء',
-    'حفر ووصلات مياه', 'معارض كساء وتجهيز عرائس', 'دعم لوجستي وتخزين'
-  ];
+  const handleDeleteConvoy = async (c: any) => {
+    if (!confirm(`حذف القافلة "${c.title}"؟`)) return;
+    try {
+      const res = await fetch(`/api/convoys/${c.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'فشل الحذف');
+      fetchConvoys();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const typesList = lists.convoyTypes;
 
   return (
     <div className="space-y-6">
@@ -86,7 +114,7 @@ export default function ConvoysPage() {
         </div>
 
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={openCreate}
           className="px-4 py-2.5 rounded-xl bg-primary hover:bg-primary-dark text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-primary/20 transition-all"
         >
           <Plus className="w-4 h-4" />
@@ -136,19 +164,28 @@ export default function ConvoysPage() {
                   )}
                 </div>
 
-                <div className="pt-4 border-t border-slate-100 mt-4 flex items-center justify-between">
-                  <div className="text-right">
-                    <span className="text-[10px] text-slate-400 block">الجاهزية</span>
-                    <span className="text-xs font-bold text-slate-800">{c.confirmedCount} / {c.requiredCount} متطوع</span>
+                <div className="pt-4 border-t border-slate-100 mt-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="text-right">
+                      <span className="text-[10px] text-slate-400 block">الجاهزية</span>
+                      <span className="text-xs font-bold text-slate-800">{c.confirmedCount} / {c.requiredCount} متطوع</span>
+                    </div>
+                    <Link
+                      href={`/convoys/${c.id}`}
+                      className="px-3.5 py-1.5 rounded-xl bg-primary text-white text-xs font-bold flex items-center gap-1 shadow-xs"
+                    >
+                      <span>التشغيل والفرق</span>
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                    </Link>
                   </div>
-
-                  <Link
-                    href={`/convoys/${c.id}`}
-                    className="px-3.5 py-1.5 rounded-xl bg-primary text-white text-xs font-bold flex items-center gap-1 shadow-xs"
-                  >
-                    <span>التشغيل والفرق</span>
-                    <ChevronLeft className="w-3.5 h-3.5" />
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => openEdit(c)} className="flex-1 px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-[11px] font-bold flex items-center justify-center gap-1">
+                      <Pencil className="w-3.5 h-3.5 text-primary" /> تعديل
+                    </button>
+                    <button onClick={() => handleDeleteConvoy(c)} className="flex-1 px-3 py-1.5 rounded-xl bg-white border border-rose-200 hover:bg-rose-50 text-rose-600 text-[11px] font-bold flex items-center justify-center gap-1">
+                      <Trash2 className="w-3.5 h-3.5" /> حذف
+                    </button>
+                  </div>
                 </div>
               </div>
             );
@@ -160,8 +197,8 @@ export default function ConvoysPage() {
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 space-y-4 animate-in fade-in zoom-in-95">
-            <h3 className="text-base font-extrabold text-slate-900">إنشاء قافلة ميدانية جديدة</h3>
-            <form onSubmit={handleCreateConvoy} className="space-y-3 text-xs">
+            <h3 className="text-base font-extrabold text-slate-900">{editingId ? 'تعديل بيانات القافلة' : 'إنشاء قافلة ميدانية جديدة'}</h3>
+            <form onSubmit={handleSubmitConvoy} className="space-y-3 text-xs">
               <div>
                 <label className="block font-bold text-slate-700 mb-1">اسم وعنوان القافلة *</label>
                 <input
@@ -189,13 +226,16 @@ export default function ConvoysPage() {
                 </div>
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">المحافظة *</label>
-                  <input
-                    type="text"
+                  <select
                     required
                     value={formData.governorate}
                     onChange={(e) => setFormData({ ...formData, governorate: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-200"
-                  />
+                  >
+                    {(lists.governorates.length ? lists.governorates : [formData.governorate]).map((g) => (
+                      <option key={g} value={g}>{g}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 

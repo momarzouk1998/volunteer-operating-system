@@ -15,14 +15,19 @@ import {
   Award,
   FileBarChart,
   ShieldAlert,
+  ShieldCheck,
   Settings,
   UserCheck,
   ChevronRight,
   ChevronLeft,
   LogOut,
   Sparkles,
+  IdCard,
+  CalendarHeart,
+  Bell,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { pageRolesFor, ROLE_LABELS } from '@/lib/rbac';
 
 interface SidebarProps {
   isCollapsed: boolean;
@@ -40,8 +45,17 @@ export default function Sidebar({
   currentUser,
 }: SidebarProps) {
   const pathname = usePathname();
+  const role: string = currentUser?.role || 'VOLUNTEER';
+  const isVolunteer = role === 'VOLUNTEER';
 
-  const navItems = [
+  const volunteerNav = [
+    { label: 'ملفي وهويتي', href: '/profile', icon: IdCard },
+    { label: 'الفرص والقوافل المتاحة', href: '/events', icon: CalendarHeart },
+    { label: 'لوحة الشرف والرتب', href: '/leaderboard', icon: Trophy },
+    { label: 'إشعاراتي', href: '/notifications', icon: Bell },
+  ];
+
+  const adminNav = [
     { label: 'لوحة المؤشرات', href: '/', icon: LayoutDashboard },
     { label: 'إدارة المتطوعين', href: '/volunteers', icon: Users },
     { label: 'طلبات التطوع', href: '/applications', icon: UserPlus },
@@ -53,8 +67,15 @@ export default function Sidebar({
     { label: 'الشهادات والتكريم', href: '/certificates', icon: Award },
     { label: 'التقارير والإحصائيات', href: '/reports', icon: FileBarChart },
     { label: 'سجل الرقابة والتدقيق', href: '/audit-logs', icon: ShieldAlert },
+    { label: 'الأدوار والصلاحيات', href: '/permissions', icon: ShieldCheck },
     { label: 'إعدادات المنظومة', href: '/settings', icon: Settings },
   ];
+
+  // إخفاء أي رابط لا يملك الدور صلاحيته (اتساقاً مع الـ middleware)
+  const navItems = (isVolunteer ? volunteerNav : adminNav).filter((item) => {
+    const roles = pageRolesFor(item.href);
+    return !roles || roles.includes(role as any);
+  });
 
   const handleLogout = async () => {
     try {
@@ -88,7 +109,7 @@ export default function Sidebar({
         {/* Sidebar Header */}
         <div className="h-16 border-b border-slate-100 flex items-center justify-between px-4">
           <Link href="/" className="flex items-center gap-3 overflow-hidden">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-navy-royal p-1.5 flex items-center justify-center flex-shrink-0 shadow-md">
+            <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 p-1.5 flex items-center justify-center flex-shrink-0 shadow-md">
               <img
                 src="/images/logo.png"
                 alt="خواطر أحلى شباب"
@@ -173,7 +194,7 @@ export default function Sidebar({
                     {currentUser?.name || 'مدير المنظومة'}
                   </span>
                   <span className="text-[10px] text-primary font-semibold truncate">
-                    {currentUser?.role === 'SUPER_ADMIN' ? 'مدير عام المنظومة' : 'متطوع معتمد'}
+                    {ROLE_LABELS[(currentUser?.role as keyof typeof ROLE_LABELS)] || 'متطوع معتمد'}
                   </span>
                 </div>
               )}

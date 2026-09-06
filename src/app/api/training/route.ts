@@ -1,13 +1,11 @@
 ﻿import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/auth';
+import { requireRole } from '@/lib/auth';
 
 export async function GET() {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
+    const gate = await requireRole('ANY_AUTH');
+    if (!gate.ok) return gate.res;
 
     const courses = await prisma.trainingCourse.findMany({
       orderBy: { date: 'desc' },
@@ -32,10 +30,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
+    const gate = await requireRole(['SUPER_ADMIN', 'VOLUNTEER_MANAGER']);
+    if (!gate.ok) return gate.res;
 
     const body = await request.json();
     const { title, type, trainer, date, hours, isLeadershipPrereq, location, notes } = body;
