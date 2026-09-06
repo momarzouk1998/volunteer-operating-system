@@ -1,4 +1,4 @@
-﻿import { clsx, type ClassValue } from 'clsx';
+import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
 export function cn(...inputs: ClassValue[]) {
@@ -132,3 +132,100 @@ export function getRankBadge(points: number, level?: string | null) {
   }
   return { title: 'عضو واعد', badgeBg: 'bg-blue-600 text-white', icon: 'Heart' };
 }
+
+export interface AchievementBadge {
+  id: string;
+  name: string;
+  desc: string;
+  icon: string;
+  color: string;
+  earned: boolean;
+  earnedAt?: string;
+  progressText?: string;
+}
+
+/** يحسب الأوسمة والشارات المكتسبة للمتطوع بناء على إنجازاته الفعلية */
+export function computeVolunteerBadges(v: any): AchievementBadge[] {
+  const hours = Number(v?.totalHours || 0);
+  const points = Number(v?.totalPoints || 0);
+  const convoys = Number(v?.convoysCount || (v?.attendances?.filter((a: any) => a.convoyId)?.length) || 0);
+  const certs = Number(v?.rewards?.length || 0);
+  const trainings = Number(v?.trainingAttendances?.filter((t: any) => t.passed)?.length || 0);
+  const rating = Number(v?.rating || 5);
+
+  return [
+    {
+      id: 'first_convoy',
+      name: 'فارس القوافل الأول',
+      desc: 'المشاركة في أول قافلة ميدانية للجمعية',
+      icon: '🚚',
+      color: 'from-blue-500 to-sky-600',
+      earned: convoys >= 1,
+      progressText: `${convoys}/1 قافلة`,
+    },
+    {
+      id: 'convoy_veteran',
+      name: 'عميد القوافل (10+)',
+      desc: 'المشاركة في 10 قوافل ميدانية بنجاح',
+      icon: '🏆',
+      color: 'from-amber-500 to-yellow-600',
+      earned: convoys >= 10,
+      progressText: `${convoys}/10 قوافل`,
+    },
+    {
+      id: 'hours_50',
+      name: 'وسام 50 ساعة عطاء',
+      desc: 'إتمام 50 ساعة عمل تطوعي معتمدة',
+      icon: '⏱️',
+      color: 'from-emerald-500 to-teal-600',
+      earned: hours >= 50,
+      progressText: `${hours}/50 ساعة`,
+    },
+    {
+      id: 'hours_100',
+      name: 'درع الـ 100 ساعة الذهبي',
+      desc: 'إتمام 100 ساعة عمل تطوعي معتمدة',
+      icon: '🎖️',
+      color: 'from-amber-600 to-orange-600',
+      earned: hours >= 100,
+      progressText: `${hours}/100 ساعة`,
+    },
+    {
+      id: 'high_rating',
+      name: 'شعلة التميز (5 نجوم)',
+      desc: 'الحصول على تقييم مشرفين ممتاز 4.8 فأعلى',
+      icon: '⭐',
+      color: 'from-purple-500 to-indigo-600',
+      earned: rating >= 4.8 && points >= 100,
+      progressText: `${rating.toFixed(1)} / 5.0`,
+    },
+    {
+      id: 'trainer_pro',
+      name: 'خريج أكاديمية القادة',
+      desc: 'اجتياز 2 دورات تدريبية متخصصة',
+      icon: '🎓',
+      color: 'from-sky-500 to-blue-700',
+      earned: trainings >= 2,
+      progressText: `${trainings}/2 دورات`,
+    },
+    {
+      id: 'certified_honor',
+      name: 'حامل أوسمة الشرف',
+      desc: 'الحصول على شهادات تقدير وتكريم رسمي',
+      icon: '📜',
+      color: 'from-rose-500 to-pink-600',
+      earned: certs >= 1,
+      progressText: `${certs}/1 شهادات`,
+    },
+    {
+      id: 'legend_points',
+      name: 'أسطورة التطوع (1000+ نقطة)',
+      desc: 'تجاوز رصيد 1000 نقطة تراكمية في المنظومة',
+      icon: '👑',
+      color: 'from-amber-400 via-amber-500 to-yellow-500',
+      earned: points >= 1000,
+      progressText: `${points}/1000 نقطة`,
+    },
+  ];
+}
+

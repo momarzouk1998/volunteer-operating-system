@@ -7,7 +7,7 @@ import {
   User, KeyRound, CheckCircle, Phone, IdCard, MapPin, Clock, Trophy,
   Star, Award, GraduationCap, Printer, TrendingUp, Sparkles, ShieldCheck,
 } from 'lucide-react';
-import { getStatusBadge, getRankBadge, formatDate, calcAge, buildTimeline } from '@/lib/utils';
+import { getStatusBadge, getRankBadge, formatDate, calcAge, buildTimeline, computeVolunteerBadges } from '@/lib/utils';
 import { toast } from '@/lib/ui';
 
 const SELF_FIELDS: { key: string; label: string; type?: string }[] = [
@@ -186,6 +186,7 @@ export default function ProfilePage() {
     : 100;
 
   const timeline = buildTimeline(v);
+  const badges = computeVolunteerBadges(v);
   const age = calcAge(v.dob);
 
   const tabs: { key: TabKey; label: string; icon: any; count?: number }[] = [
@@ -263,22 +264,74 @@ export default function ProfilePage() {
           <div className="flex items-center justify-between text-[11px] font-bold mb-1.5">
             <span className="text-slate-600 flex items-center gap-1">
               <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
-              تقدّمك نحو الرتبة التالية
+              تقدّمك نحو الرتبة التالية ({rank.title})
             </span>
             {nextRank ? (
               <span className="text-slate-500">
-                {nextRank.title} • باقي <strong className="text-primary">{(nextRank.min - points).toLocaleString()}</strong> نقطة
+                الرتبة القادمة: <strong className="text-primary">{nextRank.title}</strong> • باقي <strong className="text-amber-600">{(nextRank.min - points).toLocaleString()}</strong> نقطة
               </span>
             ) : (
-              <span className="text-amber-600">وصلت لأعلى رتبة في المنظومة 🏆</span>
+              <span className="text-amber-600 font-bold">وصلت لأعلى رتبة قيادية في المنظومة 🏆</span>
             )}
           </div>
-          <div className="h-2.5 rounded-full bg-slate-100 overflow-hidden">
+          <div className="h-3 rounded-full bg-slate-100 overflow-hidden p-0.5 border border-slate-200">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-sky-400 to-primary transition-all"
+              className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-sky-400 to-primary transition-all duration-500"
               style={{ width: `${progressPct}%` }}
             />
           </div>
+          <div className="flex justify-between text-[9px] text-slate-400 font-bold mt-1 px-1">
+            <span>{rankStart} نقطة</span>
+            <span className="text-primary font-extrabold">{progressPct}% منجز</span>
+            <span>{nextRank ? `${nextRank.min} نقطة` : 'القمة 👑'}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Achievement Badges Showcase */}
+      <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🎖️</span>
+            <div>
+              <h3 className="text-sm font-extrabold text-slate-900">أوسمة الشرف والشارات التقديرية (Badges & Milestones)</h3>
+              <p className="text-[11px] text-slate-500">تُمنح تلقائياً عند تحقيق إنجازات تطوعية وميدانية معتمدة</p>
+            </div>
+          </div>
+          <span className="text-xs font-bold text-primary bg-primary/10 px-3 py-1 rounded-full self-start sm:self-auto">
+            {badges.filter((b: any) => b.earned).length} من {badges.length} أوسمة مكتسبة
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {badges.map((b: any) => (
+            <div
+              key={b.id}
+              className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between ${
+                b.earned
+                  ? 'bg-gradient-to-br from-white to-slate-50 border-amber-200 shadow-xs hover:shadow-md'
+                  : 'bg-slate-50/60 border-slate-200/60 opacity-60 grayscale'
+              }`}
+            >
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-2xl">{b.icon}</span>
+                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${
+                    b.earned ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-200 text-slate-600'
+                  }`}>
+                    {b.earned ? 'مكتسب ✓' : 'قيد الإنجاز'}
+                  </span>
+                </div>
+                <h4 className="text-xs font-extrabold text-slate-900 leading-snug">{b.name}</h4>
+                <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">{b.desc}</p>
+              </div>
+
+              <div className="mt-3 pt-2 border-t border-slate-100 text-[10px] font-bold text-slate-600 flex items-center justify-between">
+                <span>المؤشر:</span>
+                <span className={b.earned ? 'text-primary' : 'text-slate-400'}>{b.progressText}</span>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

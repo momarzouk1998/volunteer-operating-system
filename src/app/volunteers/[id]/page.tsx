@@ -8,9 +8,17 @@ import {
   CheckCircle, Printer, IdCard, Star, ChevronRight, Download, Pencil, Trash2, X, RefreshCw
 } from 'lucide-react';
 import QRCode from 'qrcode';
-import { getStatusBadge, getRankBadge, buildTimeline, calcAge, formatDate } from '@/lib/utils';
+import { getStatusBadge, getRankBadge, buildTimeline, calcAge, formatDate, computeVolunteerBadges } from '@/lib/utils';
 import { useLists } from '@/lib/useLists';
 import { toast, confirmDialog } from '@/lib/ui';
+
+const RANKS = [
+  { min: 0, title: 'عضو واعد' },
+  { min: 300, title: 'متطوع ذهبي ملتزم' },
+  { min: 700, title: 'متطوع ماسي مبادر' },
+  { min: 1500, title: 'قائد ميداني متميز' },
+  { min: 3000, title: 'سفير العطاء القيادي' },
+];
 
 export default function VolunteerDetailPage() {
   const params = useParams();
@@ -208,6 +216,16 @@ export default function VolunteerDetailPage() {
 
   const badge = getStatusBadge(volunteer.status);
   const rank = getRankBadge(volunteer.totalPoints, volunteer.level);
+  const points = Number(volunteer.totalPoints || 0);
+  const badges = computeVolunteerBadges(volunteer);
+
+  // حساب التقدم نحو الرتبة التالية
+  const currentRankIdx = RANKS.reduce((acc, r, i) => (points >= r.min ? i : acc), 0);
+  const nextRank = RANKS[currentRankIdx + 1];
+  const rankStart = RANKS[currentRankIdx].min;
+  const progressPct = nextRank
+    ? Math.min(100, Math.round(((points - rankStart) / (nextRank.min - rankStart)) * 100))
+    : 100;
 
   return (
     <div className="space-y-6">
@@ -333,6 +351,81 @@ export default function VolunteerDetailPage() {
               <span className="text-base font-extrabold text-emerald-600">★ {volunteer.rating.toFixed(1)}</span>
             </div>
           </div>
+        </div>
+
+        {/* Rank progress bar */}
+        <div className="mt-5 pt-4 border-t border-slate-100">
+          <div className="flex items-center justify-between text-[11px] font-bold mb-1.5">
+            <span className="text-slate-600 flex items-center gap-1">
+              <Trophy className="w-3.5 h-3.5 text-amber-500" />
+              التقدم نحو الرتبة التالية ({rank.title})
+            </span>
+            {nextRank ? (
+              <span className="text-slate-500">
+                الرتبة القادمة: <strong className="text-primary">{nextRank.title}</strong> • باقي <strong className="text-amber-600">{(nextRank.min - points).toLocaleString()}</strong> نقطة
+              </span>
+            ) : (
+              <span className="text-amber-600 font-bold">وصل لأعلى رتبة قيادية في المنظومة 🏆</span>
+            )}
+          </div>
+          <div className="h-3 rounded-full bg-slate-100 overflow-hidden p-0.5 border border-slate-200">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-sky-400 to-primary transition-all duration-500"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+          <div className="flex justify-between text-[9px] text-slate-400 font-bold mt-1 px-1">
+            <span>{rankStart} نقطة</span>
+            <span className="text-primary font-extrabold">{progressPct}% منجز</span>
+            <span>{nextRank ? `${nextRank.min} نقطة` : 'القمة 👑'}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Badges card */}
+      <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🎖️</span>
+            <div>
+              <h3 className="text-sm font-extrabold text-slate-900">سجل الأوسمة والشارات المكتسبة للمتطوع</h3>
+              <p className="text-[11px] text-slate-500">استحقاق الشارات بناءً على الساعات، القوافل، التقييم، والدورات</p>
+            </div>
+          </div>
+          <span className="text-xs font-bold text-primary bg-primary/10 px-3 py-1 rounded-full self-start sm:self-auto">
+            {badges.filter((b: any) => b.earned).length} من {badges.length} أوسمة مكتسبة
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {badges.map((b: any) => (
+            <div
+              key={b.id}
+              className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between ${
+                b.earned
+                  ? 'bg-gradient-to-br from-white to-slate-50 border-amber-200 shadow-xs hover:shadow-md'
+                  : 'bg-slate-50/60 border-slate-200/60 opacity-60 grayscale'
+              }`}
+            >
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-2xl">{b.icon}</span>
+                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${
+                    b.earned ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-200 text-slate-600'
+                  }`}>
+                    {b.earned ? 'مكتسب ✓' : 'قيد الإنجاز'}
+                  </span>
+                </div>
+                <h4 className="text-xs font-extrabold text-slate-900 leading-snug">{b.name}</h4>
+                <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">{b.desc}</p>
+              </div>
+
+              <div className="mt-3 pt-2 border-t border-slate-100 text-[10px] font-bold text-slate-600 flex items-center justify-between">
+                <span>المؤشر:</span>
+                <span className={b.earned ? 'text-primary' : 'text-slate-400'}>{b.progressText}</span>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

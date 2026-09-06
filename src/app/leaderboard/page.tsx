@@ -6,7 +6,7 @@ import {
   Trophy, Crown, Star, Award, Medal, Users,
   Sparkles, ShieldCheck, ChevronLeft
 } from 'lucide-react';
-import { getRankBadge } from '@/lib/utils';
+import { getRankBadge, computeVolunteerBadges } from '@/lib/utils';
 import { useLists } from '@/lib/useLists';
 
 export default function LeaderboardPage() {
@@ -58,10 +58,13 @@ export default function LeaderboardPage() {
           <div className="divide-y divide-slate-100">
             {volunteers.map((vol, index) => {
               const rank = getRankBadge(vol.totalPoints, vol.level);
+              const badges = computeVolunteerBadges(vol);
+              const earnedBadges = badges.filter((b) => b.earned);
+
               return (
                 <div
                   key={vol.id}
-                  className="p-4 sm:p-5 flex items-center justify-between gap-4 hover:bg-slate-50/70 transition-colors"
+                  className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/70 transition-colors"
                 >
                   <div className="flex items-center gap-3.5 min-w-0">
                     <div className={`w-9 h-9 rounded-2xl flex items-center justify-center font-black text-sm flex-shrink-0 ${
@@ -73,7 +76,7 @@ export default function LeaderboardPage() {
                     </div>
 
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <Link href={`/volunteers/${vol.id}`} className="font-bold text-slate-900 text-sm hover:text-primary transition-colors">
                           {vol.name}
                         </Link>
@@ -84,10 +87,26 @@ export default function LeaderboardPage() {
                       <span className="text-xs text-slate-500 block truncate mt-0.5">
                         {vol.volunteerCode} • {vol.governorate} • {vol.teamName}
                       </span>
+                      {earnedBadges.length > 0 && (
+                        <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                          {earnedBadges.map((b) => (
+                            <span
+                              key={b.id}
+                              title={`${b.name}: ${b.desc}`}
+                              className="text-sm bg-slate-100 px-1.5 py-0.5 rounded-md hover:scale-110 transition-transform cursor-help"
+                            >
+                              {b.icon}
+                            </span>
+                          ))}
+                          <span className="text-[10px] text-slate-400 font-semibold mr-1">
+                            ({earnedBadges.length} أوسمة)
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  <div className="text-left flex-shrink-0">
+                  <div className="text-right sm:text-left flex-shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
                     <span className="text-base font-black text-amber-600 block">
                       {vol.totalPoints.toLocaleString()} <span className="text-xs font-normal">نقطة</span>
                     </span>
