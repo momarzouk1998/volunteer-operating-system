@@ -84,7 +84,12 @@ model User {
   specialNeeds    String?          // احتياجات خاصة أو حساسية
   referralSource  String?          // مصدر التعرف
   referredBy      String?          // الشخص المرشح
-  
+  prevOrg         String?          // جمعية/مؤسسة تطوع سابقة
+  prevRole        String?          // دور التطوع السابق
+  mustChangePassword Boolean       @default(false)
+  resetToken      String?          @unique
+  resetTokenExp   DateTime?
+
   status          VolunteerStatus  @default(ACTIVE)
   level           String?          @default("متطوع جديد")
   teamName        String?          @default("فريق الإغاثة الميدانية")
@@ -151,6 +156,9 @@ model Application {
   skills          String?
   preferredFields String?
   emergencyContact String?
+  volunteeredBefore Boolean?        @default(false)
+  prevOrg         String?           // اسم الجمعية/المؤسسة السابقة
+  prevRole        String?           // طبيعة التطوع السابق
   source          String?           @default("الموقع الإلكتروني")
   status          ApplicationStatus @default(NEW)
   interviewDate   DateTime?

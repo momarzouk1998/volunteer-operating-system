@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Award, QrCode, Search, CheckCircle, ExternalLink, Printer, Trash2 } from 'lucide-react';
+import { Award, Search, ExternalLink, Trash2, Download } from 'lucide-react';
 import { toast, confirmDialog } from '@/lib/ui';
 import { SkeletonList } from '@/components/Skeleton';
 import Pagination from '@/components/Pagination';
+import { exportRows } from '@/lib/exportXlsx';
 
 export default function CertificatesPage() {
   const [certificates, setCertificates] = useState<any[]>([]);
@@ -65,14 +66,29 @@ export default function CertificatesPage() {
         </p>
       </div>
 
-      <div className="relative flex items-center max-w-md">
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="بحث بالكود، اسم المتطوع، نوع التكريم..."
-          className="w-full pl-3 pr-9 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-primary text-xs outline-none shadow-xs"
-        />
-        <Search className="w-4 h-4 text-slate-400 absolute right-3 pointer-events-none" />
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="relative flex items-center flex-1 min-w-[200px] max-w-md">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="بحث بالكود، اسم المتطوع، نوع التكريم..."
+            className="w-full pl-3 pr-9 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-primary text-xs outline-none shadow-xs"
+          />
+          <Search className="w-4 h-4 text-slate-400 absolute right-3 pointer-events-none" />
+        </div>
+        <button
+          onClick={async () => {
+            const d = await fetch(`/api/certificates?search=${encodeURIComponent(search)}&pageSize=3000`).then((r) => r.json());
+            if (!d.success) return;
+            exportRows(d.certificates.map((c: any) => ({
+              'الكود': c.code, 'المتطوع': c.volunteer?.name, 'كود العضوية': c.volunteer?.volunteerCode,
+              'النوع': c.type, 'السبب': c.reason, 'النقاط': c.points, 'تاريخ الإصدار': c.issuedAt?.split('T')[0],
+            })), 'الشهادات', 'الشهادات');
+          }}
+          className="px-3 py-2.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1.5 shadow-xs"
+        >
+          <Download className="w-4 h-4 text-slate-500" /> Excel
+        </button>
       </div>
 
       <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">

@@ -86,8 +86,11 @@ export async function getCurrentUser() {
         totalPoints: true,
         rating: true,
         teamName: true,
+        mustChangePassword: true,
       },
     });
+    // الحساب المستبعد يفقد الوصول فوراً
+    if (user && user.status === 'EXCLUDED') return null;
     return user;
   } catch (err) {
     return null;

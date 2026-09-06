@@ -20,7 +20,12 @@ export default function AppLayout({
   const pathname = usePathname();
 
   // Pages that don't need the dashboard layout (e.g. login, public application, public verify certificate)
-  const isAuthPage = pathname === '/login' || pathname === '/apply' || pathname.startsWith('/verify');
+  const isAuthPage =
+    pathname === '/login' ||
+    pathname === '/apply' ||
+    pathname === '/forgot-password' ||
+    pathname === '/reset-password' ||
+    pathname.startsWith('/verify');
 
   if (isAuthPage) {
     return (

@@ -14,39 +14,36 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { phone, password } = body;
+    // يقبل identifier (بريد أو هاتف) أو phone للتوافق
+    const idRaw: string = (body.identifier || body.phone || '').toString().trim();
+    const password: string = body.password;
 
-    if (!phone || !password) {
+    if (!idRaw || !password) {
       return NextResponse.json(
-        { error: 'يرجى إدخال رقم الهاتف وكلمة المرور' },
+        { error: 'يرجى إدخال البريد الإلكتروني أو رقم الهاتف وكلمة المرور' },
         { status: 400 }
       );
     }
 
-    const cleanPhone = normalizePhone(phone);
+    const isEmail = idRaw.includes('@');
+    const cleanPhone = normalizePhone(idRaw);
     let user = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { phone: cleanPhone },
-          { phone: phone.trim() },
-          { whatsapp: cleanPhone },
-        ],
-      },
+      where: isEmail
+        ? { email: idRaw.toLowerCase() }
+        : { OR: [{ phone: cleanPhone }, { phone: idRaw }, { whatsapp: cleanPhone }] },
     });
 
     if (!user) {
-      return NextResponse.json(
-        { error: 'بيانات الدخول غير صحيحة، تأكد من رقم الهاتف' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'بيانات الدخول غير صحيحة' }, { status: 401 });
+    }
+
+    if (user.status === 'EXCLUDED') {
+      return NextResponse.json({ error: 'تم إيقاف هذا الحساب. يرجى مراجعة إدارة المتطوعين.' }, { status: 403 });
     }
 
     const isValid = await verifyPassword(password, user.passwordHash);
     if (!isValid) {
-      return NextResponse.json(
-        { error: 'كلمة المرور غير صحيحة' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'كلمة المرور غير صحيحة' }, { status: 401 });
     }
 
     const token = await signToken({
@@ -59,6 +56,7 @@ export async function POST(request: Request) {
 
     const response = NextResponse.json({
       success: true,
+      mustChangePassword: user.mustChangePassword,
       user: {
         id: user.id,
         name: user.name,

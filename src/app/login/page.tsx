@@ -18,7 +18,7 @@ export default function LoginPage() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, password }),
+        body: JSON.stringify({ identifier: phone, password }),
       });
 
       const data = await res.json();
@@ -26,7 +26,7 @@ export default function LoginPage() {
         throw new Error(data.error || 'فشل تسجيل الدخول');
       }
 
-      window.location.href = '/';
+      window.location.href = data.mustChangePassword ? '/profile#security' : '/';
     } catch (err: any) {
       setError(err.message || 'حدث خطأ أثناء تسجيل الدخول');
     } finally {
@@ -70,15 +70,15 @@ export default function LoginPage() {
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1.5 text-right">
-              رقم الهاتف المسجل *
+              البريد الإلكتروني أو رقم الهاتف *
             </label>
             <div className="relative flex items-center">
               <input
-                type="tel"
+                type="text"
                 required
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="مثال: 01000867705 أو +201012611725"
+                placeholder="name@example.com أو 01XXXXXXXXX"
                 className="w-full pl-3 pr-10 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/10 text-xs font-medium text-slate-800 outline-none transition-all placeholder:text-slate-400 text-left"
                 dir="ltr"
               />
@@ -102,9 +102,9 @@ export default function LoginPage() {
               />
               <Lock className="w-4 h-4 text-slate-400 absolute right-3 pointer-events-none" />
             </div>
-            <p className="text-[10px] text-slate-400 mt-1 text-right">
-              كلمة المرور الافتراضية للحسابات هي 123456 ويمكن تغييرها بعد الدخول
-            </p>
+            <div className="flex justify-end mt-1">
+              <a href="/forgot-password" className="text-[11px] font-bold text-primary hover:underline">نسيت كلمة السر؟</a>
+            </div>
           </div>
 
           <button

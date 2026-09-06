@@ -1,8 +1,14 @@
 ﻿import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import crypto from 'crypto';
 import { hashPassword, requireRole } from '@/lib/auth';
 import { createNotification } from '@/lib/notify';
 import { buildUserSearchText } from '@/lib/format';
+import { sendEmail, tplActivation, tplInterview } from '@/lib/mailer';
+
+function tempPassword() {
+  return crypto.randomBytes(4).toString('hex'); // 8 خانات
+}
 
 export async function DELETE(
   _request: Request,
@@ -66,8 +72,12 @@ export async function PUT(
           type: 'INTERVIEW',
         });
       }
+      if (application.email) {
+        const t = tplInterview(application.fullName, new Date(interviewDate), notes || '');
+        await sendEmail({ to: application.email, subject: t.subject, html: t.html });
+      }
 
-      return NextResponse.json({ success: true, message: 'تم تحديد موعد المقابلة بنجاح', application: updated });
+      return NextResponse.json({ success: true, message: 'تم تحديد موعد المقابلة وإرسال إشعار للمتطوع', application: updated });
     }
 
     // إجراء 2: تسجيل نتيجة المقابلة
@@ -123,10 +133,13 @@ export async function PUT(
         );
       }
 
-      const existing = await prisma.user.findFirst({ where: { phone: application.phone } });
+      const existing = await prisma.user.findFirst({
+        where: { OR: [{ phone: application.phone }, ...(application.email ? [{ email: application.email }] : [])] },
+      });
       const isNew = !existing;
+      const tempPw = tempPassword();
+      const passwordHash = isNew ? await hashPassword(tempPw) : undefined;
       let volCode = existing?.volunteerCode || null;
-      const passwordHash = isNew ? await hashPassword('123456') : undefined;
 
       // بيانات محدّثة من الطلب (تُدمج مع القديمة للحساب الموجود)
       const merged = {
@@ -143,6 +156,8 @@ export async function PUT(
         skills: application.skills || existing?.skills || null,
         preferredFields: application.preferredFields || existing?.preferredFields || null,
         emergencyContact: application.emergencyContact || existing?.emergencyContact || null,
+        prevOrg: application.prevOrg || existing?.prevOrg || null,
+        prevRole: application.prevRole || existing?.prevRole || null,
       };
 
       const result = await prisma.$transaction(async (tx) => {
@@ -168,6 +183,7 @@ export async function PUT(
               level: 'متطوع جديد',
               teamName: 'فريق الإغاثة الميدانية',
               passwordHash: passwordHash!,
+              mustChangePassword: true,
             },
           });
         } else {
@@ -203,15 +219,25 @@ export async function PUT(
       await createNotification({
         userId: result.userId,
         title: 'تم قبولك في أسرة المتطوعين 🎉',
-        body: `كود عضويتك ${volCode}.${isNew ? ' سجّل الدخول برقم هاتفك وكلمة المرور المؤقتة 123456 وغيّرها من صفحة ملفي.' : ''}`,
+        body: isNew
+          ? `كود عضويتك ${volCode}. الدخول بالبريد ${application.email} وكلمة السر المؤقتة: ${tempPw} (غيّرها عند أول دخول).`
+          : `كود عضويتك ${volCode}.`,
         type: 'APPLICATION',
         link: '/profile',
       });
 
+      let emailNote = '';
+      if (isNew && application.email) {
+        const t = tplActivation(application.fullName, application.email, tempPw, volCode!);
+        const r = await sendEmail({ to: application.email, subject: t.subject, html: t.html });
+        emailNote = r.ok ? ' وأُرسلت بيانات الدخول على البريد.' : ' (بيانات الدخول في الإشعار — البريد غير مُفعّل بعد).';
+      }
+
       return NextResponse.json({
         success: true,
-        message: `تم اعتماد المتطوع بنجاح وإصدار كود العضوية: ${volCode}`,
+        message: `تم اعتماد المتطوع وإصدار كود العضوية ${volCode}.${emailNote}`,
         volunteerCode: volCode,
+        tempPassword: isNew ? tempPw : undefined,
         application: result.updatedApp,
       });
     }

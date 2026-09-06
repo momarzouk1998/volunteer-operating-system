@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Clock, Search, Check, ShieldCheck, RotateCcw } from 'lucide-react';
+import { Clock, Search, Check, RotateCcw, Download } from 'lucide-react';
 import { toast, confirmDialog } from '@/lib/ui';
 import { SkeletonList } from '@/components/Skeleton';
 import Pagination from '@/components/Pagination';
+import { exportRows } from '@/lib/exportXlsx';
 
 export default function AttendancePage() {
   const [attendances, setAttendances] = useState<any[]>([]);
@@ -67,14 +68,31 @@ export default function AttendancePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 flex items-center gap-2">
-          <Clock className="w-6 h-6 text-primary" />
-          <span>سجل الحضور واعتماد الساعات والنقاط</span>
-        </h1>
-        <p className="text-xs sm:text-sm text-slate-500 mt-1">
-          قاعدة ذهبية: لا تُحتسب الساعات أو النقاط إلا بعد اعتماد المشرف. يمكن إلغاء الاعتماد للتصحيح.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 flex items-center gap-2">
+            <Clock className="w-6 h-6 text-primary" />
+            <span>سجل الحضور واعتماد الساعات والنقاط</span>
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            قاعدة ذهبية: لا تُحتسب الساعات أو النقاط إلا بعد اعتماد المشرف. يمكن إلغاء الاعتماد للتصحيح.
+          </p>
+        </div>
+        <button
+          onClick={async () => {
+            const q = new URLSearchParams({ search, approved: approved === 'معتمد' ? 'yes' : approved === 'قيد الاعتماد' ? 'no' : '', pageSize: '2000' });
+            const d = await fetch(`/api/attendance?${q}`).then((r) => r.json());
+            if (!d.success) return;
+            exportRows(d.attendances.map((a: any) => ({
+              'الكود': a.code, 'المتطوع': a.volunteer?.name, 'كود العضوية': a.volunteer?.volunteerCode,
+              'النشاط': a.activityName, 'التاريخ': a.date?.split('T')[0], 'المحافظة': a.governorate || a.convoy?.title || '',
+              'الساعات': a.hours, 'النقاط': a.points, 'معتمد': a.approved ? 'نعم' : 'لا', 'المعتمد': a.approvedBy || '',
+            })), 'الحضور', 'سجل_الحضور');
+          }}
+          className="px-4 py-2.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1.5 shadow-xs self-start"
+        >
+          <Download className="w-4 h-4 text-slate-500" /> تصدير Excel
+        </button>
       </div>
 
       <div className="bg-white rounded-3xl p-4 border border-slate-200 shadow-xs grid grid-cols-1 sm:grid-cols-3 gap-3">

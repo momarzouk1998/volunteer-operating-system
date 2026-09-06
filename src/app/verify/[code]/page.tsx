@@ -59,7 +59,7 @@ export default function PublicVerifyPage() {
 
           <div className="space-y-1.5">
             <h1 className="text-xl sm:text-2xl font-black text-slate-900">جمعية خواطر أحلى شباب</h1>
-            <p className="text-xs text-slate-500 font-semibold">نظام التحقق الآمن من عضويات وشهادات المتطوعين</p>
+            <p className="text-xs text-slate-500 font-semibold">التحقق من صحة الوثائق الرسمية</p>
           </div>
 
           {valid ? (
@@ -86,14 +86,13 @@ export default function PublicVerifyPage() {
               )}
 
               <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 text-right space-y-3 text-xs">
-                <Row label="كود الوثيقة المعتمد" value={data.documentCode} mono />
+                <Row label="كود الوثيقة" value={data.documentCode} mono />
                 {data.holderName && !isCert && <Row label="اسم المتطوع" value={data.holderName} />}
                 {data.volunteerCode && <Row label="كود العضوية" value={data.volunteerCode} mono />}
                 {data.governorate && <Row label="المحافظة / الفرع" value={data.governorate} />}
                 {data.team && <Row label="الفريق" value={data.team} />}
-                {data.level && <Row label="مستوى المتطوع" value={data.level} />}
                 <Row label="تاريخ الإصدار" value={formatDate(data.issuedAt)} />
-                <Row label="نظام التشغيل" value="منظومة VOS 2026 - الإصدار المؤسسي" />
+                <Row label="الجهة المُصدِرة" value="إدارة المتطوعين — جمعية خواطر أحلى شباب" />
               </div>
 
               {qr && (

@@ -4,6 +4,7 @@ import { normalizePhone, requireRole } from '@/lib/auth';
 import { notifyRoles, ADMIN_NOTIFY_ROLES } from '@/lib/notify';
 import { nextCode } from '@/lib/codes';
 import { rateLimit, clientIp } from '@/lib/ratelimit';
+import { ARABIC_NAME_RE, EG_PHONE_RE, NATIONAL_ID_RE } from '@/lib/egypt';
 
 export async function GET(request: Request) {
   try {
@@ -65,29 +66,44 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const {
-      fullName,
-      nationalId,
-      dob,
-      phone,
-      whatsapp,
-      email,
-      governorate,
-      city,
-      address,
-      qualification,
-      major,
-      skills,
-      preferredFields,
-      emergencyContact,
-      source,
-      notes,
+      fullName, nationalId, dob, phone, whatsapp, email, governorate, city, address,
+      qualification, major, skills, preferredFields, emergencyContact,
+      volunteeredBefore, prevOrg, prevRole, source, notes,
     } = body;
 
-    if (!fullName || !phone || !governorate) {
-      return NextResponse.json({ error: 'يرجى إكمال الحقول الأساسية (الاسم، الهاتف، المحافظة)' }, { status: 400 });
+    // تحقق الخادم من كل الحقول الإجبارية
+    const req: [any, string][] = [
+      [fullName, 'الاسم'], [nationalId, 'الرقم القومي'], [dob, 'تاريخ الميلاد'], [phone, 'الهاتف'],
+      [whatsapp, 'الواتساب'], [email, 'البريد الإلكتروني'], [governorate, 'المحافظة'], [city, 'المركز/المدينة'],
+      [address, 'العنوان'], [qualification, 'المؤهل'], [major, 'التخصص'], [skills, 'المهارات'],
+      [preferredFields, 'المجالات المفضلة'], [emergencyContact, 'جهة الطوارئ'],
+    ];
+    for (const [val, label] of req) {
+      if (!val || !String(val).trim()) return NextResponse.json({ error: `حقل «${label}» مطلوب` }, { status: 400 });
+    }
+    if (!ARABIC_NAME_RE.test(String(fullName).trim())) {
+      return NextResponse.json({ error: 'الاسم يجب أن يكون بالحروف العربية فقط' }, { status: 400 });
+    }
+    if (!NATIONAL_ID_RE.test(String(nationalId))) {
+      return NextResponse.json({ error: 'الرقم القومي يجب أن يكون 14 رقماً' }, { status: 400 });
+    }
+    if (!EG_PHONE_RE.test(String(phone)) || !EG_PHONE_RE.test(String(whatsapp))) {
+      return NextResponse.json({ error: 'رقم الهاتف/الواتساب غير صحيح (11 رقماً مصرياً)' }, { status: 400 });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email))) {
+      return NextResponse.json({ error: 'البريد الإلكتروني غير صحيح' }, { status: 400 });
+    }
+    if (volunteeredBefore && (!prevOrg?.trim() || !prevRole?.trim())) {
+      return NextResponse.json({ error: 'يرجى إدخال بيانات التطوع السابق' }, { status: 400 });
     }
 
     const cleanPhone = normalizePhone(phone);
+
+    // منع تكرار البريد على حساب موجود
+    const emailUser = await prisma.user.findFirst({ where: { email: String(email).toLowerCase() } });
+    if (emailUser) {
+      return NextResponse.json({ error: 'هذا البريد الإلكتروني مسجّل بالفعل. سجّل الدخول أو استخدم «نسيت كلمة السر».' }, { status: 409 });
+    }
 
     // كشف طلب مكرر قيد المراجعة بنفس الرقم
     const pending = await prisma.application.findFirst({
@@ -106,11 +122,11 @@ export async function POST(request: Request) {
       data: {
         code: newCode,
         fullName,
-        nationalId: nationalId || null,
-        dob: dob ? new Date(dob) : null,
+        nationalId: String(nationalId),
+        dob: new Date(dob),
         phone: cleanPhone,
-        whatsapp: whatsapp ? normalizePhone(whatsapp) : cleanPhone,
-        email: email || null,
+        whatsapp: normalizePhone(whatsapp),
+        email: String(email).toLowerCase(),
         governorate,
         city: city || null,
         address: address || null,
@@ -119,6 +135,9 @@ export async function POST(request: Request) {
         skills: skills || null,
         preferredFields: preferredFields || null,
         emergencyContact: emergencyContact || null,
+        volunteeredBefore: !!volunteeredBefore,
+        prevOrg: volunteeredBefore ? prevOrg || null : null,
+        prevRole: volunteeredBefore ? prevRole || null : null,
         source: source || 'الموقع الإلكتروني',
         notes: notes || null,
       },

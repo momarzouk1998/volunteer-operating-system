@@ -8,6 +8,8 @@ import {
 import { toast, confirmDialog } from '@/lib/ui';
 import Pagination from '@/components/Pagination';
 import { SkeletonList } from '@/components/Skeleton';
+import { exportRows } from '@/lib/exportXlsx';
+import { Download } from 'lucide-react';
 
 export default function ApplicationsPage() {
   const [applications, setApplications] = useState<any[]>([]);
@@ -31,6 +33,7 @@ export default function ApplicationsPage() {
   const [skills, setSkills] = useState(20);
   const [leadership, setLeadership] = useState(20);
   const [recommendation, setRecommendation] = useState('مقبول');
+  const [scoreNotes, setScoreNotes] = useState('');
 
   const [saving, setSaving] = useState(false);
 
@@ -109,13 +112,17 @@ export default function ApplicationsPage() {
             skills,
             leadership,
             recommendation,
+            interviewNotes: scoreNotes,
           },
         }),
       });
       const data = await res.json();
       if (data.success) {
+        toast(data.message || 'تم حفظ نتيجة المقابلة', 'success');
         setScoringModal(false);
         fetchApps();
+      } else {
+        toast(data.error || 'فشل الحفظ', 'error');
       }
     } catch (err) {
       console.error(err);
@@ -192,6 +199,22 @@ export default function ApplicationsPage() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={async () => {
+              const q = new URLSearchParams({ status: status !== 'الكل' ? status : '', search, pageSize: '3000' });
+              const d = await fetch(`/api/applications?${q}`).then((r) => r.json());
+              if (!d.success) return;
+              exportRows(d.applications.map((a: any) => ({
+                'الكود': a.code, 'الاسم': a.fullName, 'الهاتف': a.phone, 'البريد': a.email || '', 'المحافظة': a.governorate,
+                'المؤهل': a.qualification || '', 'الحالة': a.status, 'القرار': a.decision || '',
+                'درجة المقابلة': a.interview?.totalScore ?? '', 'تطوّع سابقاً': a.volunteeredBefore ? 'نعم' : 'لا',
+                'تاريخ التقديم': a.createdAt?.split('T')[0],
+              })), 'الطلبات', 'طلبات_التطوع');
+            }}
+            className="px-3 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1.5"
+          >
+            <Download className="w-4 h-4 text-slate-500" /> Excel
+          </button>
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -283,7 +306,7 @@ export default function ApplicationsPage() {
                         className="px-3 py-1.5 rounded-xl bg-purple-50 text-purple-800 hover:bg-purple-100 text-xs font-bold border border-purple-200 flex items-center gap-1 transition-colors"
                       >
                         <Star className="w-3.5 h-3.5" />
-                        <span>تسجيل المقابلة</span>
+                        <span>نتيجة المقابلة</span>
                       </button>
 
                       <button
@@ -373,7 +396,7 @@ export default function ApplicationsPage() {
       {scoringModal && selectedApp && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in-95">
-            <h3 className="text-base font-extrabold text-slate-900">تسجيل نتائج المقابلة الشخصية (SRS VOS-01)</h3>
+            <h3 className="text-base font-extrabold text-slate-900">نتيجة المقابلة الشخصية</h3>
             <form onSubmit={handleRecordScoring} className="space-y-3 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -450,6 +473,17 @@ export default function ApplicationsPage() {
                   <option value="قائمة انتظار">قائمة انتظار</option>
                   <option value="غير مستوفٍ">غير مستوفٍ</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">تقييم وملاحظات المسؤول</label>
+                <textarea
+                  rows={3}
+                  value={scoreNotes}
+                  onChange={(e) => setScoreNotes(e.target.value)}
+                  placeholder="انطباع المسؤول عن المتطوع، نقاط القوة، الملاحظات..."
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200"
+                />
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2">
