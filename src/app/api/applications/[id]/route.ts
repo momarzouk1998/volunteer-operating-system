@@ -5,6 +5,7 @@ import { hashPassword, requireRole } from '@/lib/auth';
 import { createNotification } from '@/lib/notify';
 import { buildUserSearchText } from '@/lib/format';
 import { sendEmail, tplActivation, tplInterview } from '@/lib/mailer';
+import { decryptPII, hashPII } from '@/lib/crypto';
 
 function tempPassword() {
   return crypto.randomBytes(4).toString('hex'); // 8 خانات
@@ -142,9 +143,11 @@ export async function PUT(
       let volCode = existing?.volunteerCode || null;
 
       // بيانات محدّثة من الطلب (تُدمج مع القديمة للحساب الموجود)
+      const appNationalIdPlain = application.nationalId ? decryptPII(application.nationalId) : null;
       const merged = {
         name: application.fullName,
         nationalId: application.nationalId || existing?.nationalId || null,
+        nationalIdHash: appNationalIdPlain ? hashPII(appNationalIdPlain) : existing?.nationalIdHash || null,
         dob: application.dob || existing?.dob || null,
         gender: application.gender || existing?.gender || null,
         whatsapp: application.whatsapp || existing?.whatsapp || application.phone,

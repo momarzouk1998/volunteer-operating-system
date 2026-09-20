@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getCurrentUser, requireRole } from '@/lib/auth';
 import { isScopedRole } from '@/lib/rbac';
 import { buildUserSearchText } from '@/lib/format';
+import { encryptPII, decryptPII, hashPII } from '@/lib/crypto';
 import { recalcVolunteer } from '@/lib/volunteerBalance';
 import { getNumberSetting } from '@/lib/settings';
 
@@ -62,7 +63,7 @@ export async function GET(
     const activity =
       volunteer.lastActiveDate && new Date(volunteer.lastActiveDate).getTime() >= cutoff ? 'نشط' : 'خامل';
 
-    return NextResponse.json({ success: true, volunteer: { ...volunteer, activity } });
+    return NextResponse.json({ success: true, volunteer: { ...volunteer, nationalId: decryptPII(volunteer.nationalId), activity } });
   } catch (err: any) {
     console.error('Error getting volunteer 360:', err);
     return NextResponse.json({ error: 'خطأ في جلب ملف المتطوع' }, { status: 500 });
@@ -115,7 +116,8 @@ export async function PUT(
       where: { id },
       data: {
         name: body.name,
-        nationalId: body.nationalId || null,
+        nationalId: body.nationalId ? encryptPII(body.nationalId) : null,
+        nationalIdHash: body.nationalId ? hashPII(body.nationalId) : null,
         phone: body.phone,
         whatsapp: body.whatsapp || null,
         governorate: body.governorate,
@@ -136,7 +138,6 @@ export async function PUT(
           phone: body.phone,
           whatsapp: body.whatsapp,
           volunteerCode: existing?.volunteerCode,
-          nationalId: body.nationalId,
         }),
       },
     });

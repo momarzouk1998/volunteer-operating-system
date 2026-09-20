@@ -2,6 +2,7 @@
 import { prisma } from '@/lib/prisma';
 import { hashPassword, normalizePhone, requireRole, governorateScope } from '@/lib/auth';
 import { normalizeArabic, buildUserSearchText } from '@/lib/format';
+import { encryptPII, decryptPII, hashPII } from '@/lib/crypto';
 
 const LIST_SELECT = {
   id: true, volunteerCode: true, name: true, nationalId: true, phone: true, whatsapp: true,
@@ -35,14 +36,13 @@ export async function GET(request: Request) {
 
     if (search.trim()) {
       // بحث عربي مطبَّع متعدد الكلمات: كل كلمة يجب أن ترد في نص البحث
+      // الرقم القومي مشفّر — يُبحث عنه بالمطابقة التامة عبر بصمته فقط (وليس جزءاً من النص)
       const words = normalizeArabic(search).split(' ').filter(Boolean);
-      whereClause.AND = words.map((w) => ({
-        OR: [
-          { searchText: { contains: w } },
-          { phone: { contains: w } },
-          { nationalId: { contains: w } },
-        ],
-      }));
+      whereClause.AND = words.map((w) => {
+        const OR: any[] = [{ searchText: { contains: w } }, { phone: { contains: w } }];
+        if (/^\d{14}$/.test(w)) OR.push({ nationalIdHash: hashPII(w) });
+        return { OR };
+      });
     }
 
     if (governorate && governorate !== 'الكل' && !scope.governorate) whereClause.governorate = governorate;
@@ -57,7 +57,11 @@ export async function GET(request: Request) {
 
     if (isExport) {
       const rows = await prisma.user.findMany({ where: whereClause, orderBy, select: LIST_SELECT, take: 10000 });
-      return NextResponse.json({ success: true, volunteers: rows, total: rows.length });
+      return NextResponse.json({
+        success: true,
+        volunteers: rows.map((r) => ({ ...r, nationalId: decryptPII(r.nationalId) })),
+        total: rows.length,
+      });
     }
 
     const [volunteers, total] = await Promise.all([
@@ -73,7 +77,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       success: true,
-      volunteers,
+      volunteers: volunteers.map((v) => ({ ...v, nationalId: decryptPII(v.nationalId) })),
       total,
       page,
       pageSize,
@@ -116,11 +120,12 @@ export async function POST(request: Request) {
     }
 
     const cleanPhone = normalizePhone(phone);
+    const nationalIdHash = nationalId ? hashPII(nationalId) : null;
     const existing = await prisma.user.findFirst({
       where: {
         OR: [
           { phone: cleanPhone },
-          nationalId ? { nationalId } : { phone: cleanPhone },
+          nationalIdHash ? { nationalIdHash } : { phone: cleanPhone },
         ],
       },
     });
@@ -149,10 +154,11 @@ export async function POST(request: Request) {
       data: {
         volunteerCode: newCode,
         name,
-        nationalId: nationalId || null,
+        nationalId: nationalId ? encryptPII(nationalId) : null,
+        nationalIdHash,
         phone: cleanPhone,
         whatsapp: whatsapp ? normalizePhone(whatsapp) : cleanPhone,
-        searchText: buildUserSearchText({ name, phone: cleanPhone, whatsapp, volunteerCode: newCode, nationalId }),
+        searchText: buildUserSearchText({ name, phone: cleanPhone, whatsapp, volunteerCode: newCode }),
         governorate: governorate || 'الجيزة',
         city: city || null,
         address: address || null,

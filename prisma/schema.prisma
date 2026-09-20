@@ -55,7 +55,8 @@ model User {
   name            String
   role            Role             @default(VOLUNTEER)
   volunteerCode   String?          @unique // KAS-00001
-  nationalId      String?          @unique // 14 رقم
+  nationalId      String?          // مشفّر (AES-256-GCM) — 14 رقم
+  nationalIdHash  String?          @unique // بصمة HMAC للفرادة والبحث الدقيق
   dob             DateTime?
   gender          String?          // ذكر / أنثى
   nationality     String?          @default("مصري")
@@ -144,7 +145,7 @@ model Application {
   id              String            @id @default(cuid())
   code            String            @unique // APP-2026-XXXXX
   fullName        String
-  nationalId      String?
+  nationalId      String?           // مشفّر (AES-256-GCM)
   dob             DateTime?
   gender          String?           // ذكر / أنثى
   phone           String

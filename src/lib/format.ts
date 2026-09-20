@@ -32,17 +32,17 @@ export function matchesArabicSearch(
   return words.every((w) => normTarget.includes(w));
 }
 
-/** نص بحث موحّد لسجل مستخدم (اسم + هاتف + كود + رقم قومي). يُخزَّن في العمود searchText. */
+/** نص بحث موحّد لسجل مستخدم (اسم + هاتف + كود). يُخزَّن في العمود searchText.
+ *  ملاحظة: الرقم القومي مستبعد عمداً — يُخزَّن مشفّراً، والبحث الدقيق عنه يتم عبر nationalIdHash. */
 export function buildUserSearchText(u: {
   name?: string | null;
   phone?: string | null;
   whatsapp?: string | null;
   volunteerCode?: string | null;
-  nationalId?: string | null;
   email?: string | null;
 }): string {
   return normalizeArabic(
-    [u.name, u.phone, u.whatsapp, u.volunteerCode, u.nationalId, u.email].filter(Boolean).join(' ')
+    [u.name, u.phone, u.whatsapp, u.volunteerCode, u.email].filter(Boolean).join(' ')
   );
 }
 

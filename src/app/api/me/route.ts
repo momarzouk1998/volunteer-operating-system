@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser, normalizePhone } from '@/lib/auth';
 import { buildUserSearchText } from '@/lib/format';
+import { decryptPII } from '@/lib/crypto';
 
 // الحقول التي يُسمح للمستخدم بتعديلها في ملفه بنفسه (SRS §05: البيانات المسموح بها)
 const SELF_EDITABLE = [
@@ -51,6 +52,7 @@ export async function GET() {
     }
 
     const { passwordHash, ...safe } = me as any;
+    safe.nationalId = decryptPII(safe.nationalId);
 
     // إحصائيات مشتقّة
     const approvedAttendance = me.attendances.filter((a) => a.approved);
@@ -94,14 +96,13 @@ export async function PUT(request: Request) {
 
     const dbUser = await prisma.user.findUnique({
       where: { id: current.id },
-      select: { name: true, phone: true, whatsapp: true, volunteerCode: true, nationalId: true, email: true },
+      select: { name: true, phone: true, whatsapp: true, volunteerCode: true, email: true },
     });
     data.searchText = buildUserSearchText({
       name: dbUser?.name,
       phone: dbUser?.phone,
       whatsapp: data.whatsapp ?? dbUser?.whatsapp,
       volunteerCode: dbUser?.volunteerCode,
-      nationalId: dbUser?.nationalId,
       email: data.email ?? dbUser?.email,
     });
 

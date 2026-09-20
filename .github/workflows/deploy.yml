@@ -64,6 +64,7 @@ jobs:
               -e PORT=3060 \
               -e DATABASE_URL="postgresql://vos_user:Vos2026!SecureDb@localhost:5432/vos_db?schema=public" \
               -e JWT_SECRET="${{ secrets.JWT_SECRET }}" \
+              -e ENCRYPTION_KEY="${{ secrets.ENCRYPTION_KEY }}" \
               -e NEXT_PUBLIC_APP_NAME="منصة إدارة وتشغيل المتطوعين VOS" \
               -e NODE_ENV=production \
               -e HOSTNAME=0.0.0.0 \

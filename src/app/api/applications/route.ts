@@ -5,6 +5,7 @@ import { notifyRoles, ADMIN_NOTIFY_ROLES } from '@/lib/notify';
 import { nextCode } from '@/lib/codes';
 import { rateLimit, clientIp } from '@/lib/ratelimit';
 import { ARABIC_NAME_RE, EG_PHONE_RE, NATIONAL_ID_RE } from '@/lib/egypt';
+import { encryptPII } from '@/lib/crypto';
 
 export async function GET(request: Request) {
   try {
@@ -125,7 +126,7 @@ export async function POST(request: Request) {
       data: {
         code: newCode,
         fullName,
-        nationalId: String(nationalId),
+        nationalId: encryptPII(String(nationalId)),
         gender,
         dob: new Date(dob),
         phone: cleanPhone,
