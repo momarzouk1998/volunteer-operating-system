@@ -67,5 +67,11 @@ jobs:
               -e NEXT_PUBLIC_APP_NAME="منصة إدارة وتشغيل المتطوعين VOS" \
               -e NODE_ENV=production \
               -e HOSTNAME=0.0.0.0 \
+              -e SMTP_HOST="${{ secrets.SMTP_HOST }}" \
+              -e SMTP_PORT="${{ secrets.SMTP_PORT }}" \
+              -e SMTP_USER="${{ secrets.SMTP_USER }}" \
+              -e SMTP_PASS="${{ secrets.SMTP_PASS }}" \
+              -e SMTP_FROM="${{ secrets.SMTP_FROM }}" \
+              -e APP_BASE_URL="https://vos.ahlashabab.com" \
               ghcr.io/${{ github.repository }}:latest
             nginx -t && systemctl reload nginx
