@@ -1,4 +1,5 @@
 import { prisma } from './prisma';
+import nodemailer from 'nodemailer';
 
 // ============================================================================
 //  طبقة إرسال البريد — جاهزة لتفعيل SMTP عند توفير بيانات الخادم في متغيرات البيئة:
@@ -33,8 +34,6 @@ export async function sendEmail(mail: Mail): Promise<{ ok: boolean; reason?: str
   }
 
   try {
-    // تُحمّل nodemailer فقط عند وجود إعدادات (تجنّب تبعية غير مستخدمة)
-    const nodemailer = (await import('nodemailer')).default as any;
     const transport = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: Number(process.env.SMTP_PORT || 587),

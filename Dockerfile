@@ -42,6 +42,10 @@ COPY --from=deps --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/p
 COPY --from=deps --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=deps --chown=nextjs:nodejs /app/node_modules/.bin ./node_modules/.bin
 
+# nodemailer: تأكيد وجودها في الحزمة النهائية (تتبع Next.js للملفات القابل قد يفوّت
+# الاستيراد الديناميكي الشرطي أحياناً؛ الآن استيراد ثابت + نسخ صريح احتياطاً)
+COPY --from=deps --chown=nextjs:nodejs /app/node_modules/nodemailer ./node_modules/nodemailer
+
 COPY --chown=nextjs:nodejs docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x ./docker-entrypoint.sh
 
