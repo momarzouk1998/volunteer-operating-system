@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import {
-  GraduationCap, Plus, Calendar, Users, Award, CheckCircle, Clock, Pencil, Trash2
+  GraduationCap, Plus, Calendar, Users, Award, CheckCircle, Clock, Pencil, Trash2, ClipboardList, X
 } from 'lucide-react';
 import { useLists } from '@/lib/useLists';
 import { toast, confirmDialog } from '@/lib/ui';
@@ -16,6 +16,11 @@ export default function TrainingPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // شاشة المسجّلين وتقييم نتائج التدريب
+  const [gradingCourse, setGradingCourse] = useState<any>(null);
+  const [drafts, setDrafts] = useState<Record<string, { attended: boolean; passed: boolean; score: string; notes: string; certificateCode: string }>>({});
+  const [rowSaving, setRowSaving] = useState<Record<string, boolean>>({});
 
   const [formData, setFormData] = useState({
     title: '',
@@ -87,6 +92,50 @@ export default function TrainingPage() {
     }
   };
 
+  const openGrading = (c: any) => {
+    setGradingCourse(c);
+    const d: typeof drafts = {};
+    (c.attendances || []).forEach((a: any) => {
+      d[a.id] = {
+        attended: !!a.attended,
+        passed: !!a.passed,
+        score: a.score ?? '',
+        notes: a.notes || '',
+        certificateCode: a.certificateCode || '',
+      };
+    });
+    setDrafts(d);
+  };
+
+  const saveRow = async (attendanceId: string) => {
+    if (!gradingCourse) return;
+    const d = drafts[attendanceId];
+    if (!d) return;
+    setRowSaving((p) => ({ ...p, [attendanceId]: true }));
+    try {
+      const res = await fetch(`/api/training/${gradingCourse.id}/attendance`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          attendanceId,
+          attended: d.attended,
+          passed: d.passed,
+          score: d.score === '' ? '' : Number(d.score),
+          notes: d.notes,
+          certificateCode: d.certificateCode,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'فشل الحفظ');
+      toast('تم حفظ النتيجة', 'success');
+      fetchCourses();
+    } catch (err: any) {
+      toast(err.message, 'error');
+    } finally {
+      setRowSaving((p) => ({ ...p, [attendanceId]: false }));
+    }
+  };
+
   const handleDeleteCourse = async (c: any) => {
     if (!(await confirmDialog({ title: `حذف الدورة "${c.title}"`, danger: true, confirmText: 'حذف' }))) return;
     try {
@@ -149,6 +198,13 @@ export default function TrainingPage() {
                 <p>المكان: {c.location}</p>
                 <p>عدد الحضور المسجلين: <strong className="text-primary">{c._count?.attendances || 0} متطوع</strong></p>
               </div>
+
+              <button
+                onClick={() => openGrading(c)}
+                className="w-full px-3 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 text-[11px] font-bold flex items-center justify-center gap-1.5"
+              >
+                <ClipboardList className="w-3.5 h-3.5" /> المسجّلون والتقييم ({c._count?.attendances || 0})
+              </button>
 
               <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
                 <button onClick={() => openEdit(c)} className="flex-1 px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-[11px] font-bold flex items-center justify-center gap-1">
@@ -256,6 +312,107 @@ export default function TrainingPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {gradingCourse && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full max-h-[85vh] flex flex-col animate-in fade-in zoom-in-95">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900">المسجّلون في: {gradingCourse.title}</h3>
+                <p className="text-[11px] text-slate-500 mt-0.5">سجّل الحضور والنجاح ودرجة كل متطوع بعد انعقاد الدورة</p>
+              </div>
+              <button onClick={() => setGradingCourse(null)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto p-4 space-y-3">
+              {(gradingCourse.attendances || []).length === 0 ? (
+                <div className="p-8 text-center text-slate-400 text-xs">لا يوجد متطوعون مسجّلون في هذه الدورة بعد.</div>
+              ) : (
+                gradingCourse.attendances.map((a: any) => {
+                  const d = drafts[a.id] || { attended: false, passed: false, score: '', notes: '', certificateCode: '' };
+                  const busy = !!rowSaving[a.id];
+                  return (
+                    <div key={a.id} className="p-3.5 rounded-2xl border border-slate-200 space-y-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <h4 className="font-bold text-slate-900 text-xs truncate">{a.volunteer?.name}</h4>
+                          <span className="text-[10px] text-slate-400 font-mono">{a.volunteer?.volunteerCode} • {a.volunteer?.phone}</span>
+                        </div>
+                        <button
+                          onClick={() => saveRow(a.id)}
+                          disabled={busy}
+                          className="px-3 py-1.5 rounded-lg bg-primary hover:bg-primary-dark text-white text-[11px] font-bold disabled:opacity-50 flex-shrink-0"
+                        >
+                          {busy ? 'جاري الحفظ...' : 'حفظ'}
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 items-end">
+                        <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700">
+                          <input
+                            type="checkbox"
+                            checked={d.attended}
+                            onChange={(e) => setDrafts((p) => ({ ...p, [a.id]: { ...d, attended: e.target.checked } }))}
+                            className="rounded border-slate-300"
+                          />
+                          حضر
+                        </label>
+                        <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700">
+                          <input
+                            type="checkbox"
+                            checked={d.passed}
+                            onChange={(e) => setDrafts((p) => ({ ...p, [a.id]: { ...d, passed: e.target.checked } }))}
+                            className="rounded border-slate-300"
+                          />
+                          نجح
+                        </label>
+                        <div>
+                          <label className="block text-[10px] text-slate-400 mb-0.5">الدرجة</label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={d.score}
+                            onChange={(e) => setDrafts((p) => ({ ...p, [a.id]: { ...d, score: e.target.value } }))}
+                            placeholder="—"
+                            className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-slate-400 mb-0.5">كود الشهادة (اختياري)</label>
+                          <input
+                            type="text"
+                            value={d.certificateCode}
+                            onChange={(e) => setDrafts((p) => ({ ...p, [a.id]: { ...d, certificateCode: e.target.value } }))}
+                            className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-mono"
+                            dir="ltr"
+                          />
+                        </div>
+                      </div>
+
+                      <input
+                        type="text"
+                        value={d.notes}
+                        onChange={(e) => setDrafts((p) => ({ ...p, [a.id]: { ...d, notes: e.target.value } }))}
+                        placeholder="ملاحظات (اختياري)"
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs"
+                      />
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="p-4 border-t border-slate-100 flex justify-end">
+              <button onClick={() => setGradingCourse(null)} className="px-5 py-2 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs">
+                إغلاق
+              </button>
+            </div>
           </div>
         </div>
       )}
