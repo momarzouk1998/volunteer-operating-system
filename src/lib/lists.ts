@@ -4,7 +4,7 @@ import { prisma } from './prisma';
 export const LIST_DEFAULTS: Record<string, { label: string; values: string[] }> = {
   LIST_LEVELS: {
     label: 'مستويات المتطوع',
-    values: ['متطوع جديد', 'متطوع ملتزم', 'متميز', 'قائد فريق', 'قائد قافلة', 'قائد محافظة'],
+    values: ['مبتدئ', 'فعال', 'متميز', 'قائد فريق', 'سفير الجمعية'],
   },
   LIST_CONVOY_TYPES: {
     label: 'أنواع القوافل',

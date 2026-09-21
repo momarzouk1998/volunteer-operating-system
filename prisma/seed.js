@@ -139,7 +139,7 @@ async function main() {
       volunteerNature: 'ميداني ومكتبي',
       availableDays: 'الجمعة والسبت',
       status: 'ACTIVE',
-      level: 'قائد قافلة',
+      level: 'قائد فريق',
       teamName: 'فريق الإغاثة الميدانية',
       totalHours: 120,
       totalPoints: 1450,
@@ -195,7 +195,7 @@ async function main() {
       volunteerNature: 'ميداني',
       availableDays: 'الجمعة',
       status: 'ACTIVE',
-      level: 'متطوع ملتزم',
+      level: 'فعال',
       teamName: 'فريق القوافل الطبية',
       totalHours: 40,
       totalPoints: 560,
@@ -251,7 +251,7 @@ async function main() {
       volunteerNature: 'ميداني',
       availableDays: 'الجمعة والسبت',
       status: 'DISCONTINUED', // منقطع
-      level: 'متطوع ملتزم',
+      level: 'فعال',
       teamName: 'فريق الدعم اللوجستي',
       totalHours: 24,
       totalPoints: 280,
@@ -394,7 +394,7 @@ async function main() {
 
   // القوائم المنسدلة القابلة للتعديل (category = LIST)
   const defaultLists = [
-    { key: 'LIST_LEVELS', description: 'مستويات المتطوع', values: ['متطوع جديد', 'متطوع ملتزم', 'متميز', 'قائد فريق', 'قائد قافلة', 'قائد محافظة'] },
+    { key: 'LIST_LEVELS', description: 'مستويات المتطوع', values: ['مبتدئ', 'فعال', 'متميز', 'قائد فريق', 'سفير الجمعية'] },
     { key: 'LIST_CONVOY_TYPES', description: 'أنواع القوافل', values: ['قافلة إغاثية', 'قافلة طبية', 'قافلة إطعام', 'معرض كساء', 'تجهيز عرائس', 'حملة توعية'] },
     { key: 'LIST_TASK_TYPES', description: 'أنواع المهام', values: ['توزيع وإغاثة', 'فرز وتعبئة', 'لجنة طبية', 'تنظيم وحشد', 'توثيق وإعلام', 'دعم لوجستي'] },
     { key: 'LIST_TRAINING_TYPES', description: 'أنواع التدريب', values: ['تأهيل متطوعين جدد', 'إسعافات أولية', 'مهارات القيادة والتنظيم', 'التوثيق وصناعة المحتوى', 'إدارة الأزمات'] },

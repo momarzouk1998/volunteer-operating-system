@@ -1,18 +1,19 @@
 import { prisma } from './prisma';
 
 // عتبات المستوى بالنقاط — قابلة للتعديل عبر SystemSetting (category = GAMIFICATION)
+// فئات المتطوع الخمس: مبتدئ (افتراضي) → فعال → متميز → قائد فريق → سفير الجمعية
 export const LEVEL_SETTING_DEFAULTS = {
-  LEVEL_PT_COMMITTED: { value: '300', description: 'حد نقاط: متطوع ملتزم' },
-  LEVEL_PT_DISTINGUISHED: { value: '700', description: 'حد نقاط: متطوع متميز' },
-  LEVEL_PT_TEAM_LEAD: { value: '1500', description: 'حد نقاط: مؤهل لقيادة فريق' },
-  LEVEL_PT_AMBASSADOR: { value: '3000', description: 'حد نقاط: سفير عطاء قيادي' },
+  LEVEL_PT_COMMITTED: { value: '300', description: 'حد نقاط: فعال' },
+  LEVEL_PT_DISTINGUISHED: { value: '700', description: 'حد نقاط: متميز' },
+  LEVEL_PT_TEAM_LEAD: { value: '1500', description: 'حد نقاط: قائد فريق' },
+  LEVEL_PT_AMBASSADOR: { value: '3000', description: 'حد نقاط: سفير الجمعية' },
 } as const;
 
 const LADDER: { key: keyof typeof LEVEL_SETTING_DEFAULTS; label: string }[] = [
-  { key: 'LEVEL_PT_AMBASSADOR', label: 'قائد محافظة' },
+  { key: 'LEVEL_PT_AMBASSADOR', label: 'سفير الجمعية' },
   { key: 'LEVEL_PT_TEAM_LEAD', label: 'قائد فريق' },
   { key: 'LEVEL_PT_DISTINGUISHED', label: 'متميز' },
-  { key: 'LEVEL_PT_COMMITTED', label: 'متطوع ملتزم' },
+  { key: 'LEVEL_PT_COMMITTED', label: 'فعال' },
 ];
 
 export async function ensureLevelSettings() {
@@ -41,6 +42,6 @@ export async function levelForPoints(points: number, currentLevel?: string | nul
   }
 
   // إن كان له لقب قيادي مُسند يدوياً ولم يعد مستحقاً بالنقاط، أبقِه كما هو
-  if (currentLevel && /قائد|محافظة/.test(currentLevel)) return currentLevel;
-  return 'متطوع جديد';
+  if (currentLevel && /قائد|سفير/.test(currentLevel)) return currentLevel;
+  return 'مبتدئ';
 }

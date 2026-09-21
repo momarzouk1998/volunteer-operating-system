@@ -55,7 +55,7 @@ export default function VolunteersPage() {
     skills: '',
     preferredFields: '',
     teamName: 'فريق الإغاثة الميدانية',
-    level: 'متطوع جديد',
+    level: 'مبتدئ',
     status: 'ACTIVE',
     notes: '',
   });

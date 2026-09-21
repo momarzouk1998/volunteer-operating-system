@@ -118,7 +118,7 @@ export function getStatusBadge(status: string) {
 }
 
 export function getRankBadge(points: number, level?: string | null) {
-  if (points >= 3000 || level?.includes('مدير') || level?.includes('محافظة')) {
+  if (points >= 3000 || level?.includes('مدير') || level?.includes('سفير')) {
     return { title: 'سفير العطاء القيادي', badgeBg: 'bg-amber-500 text-white', icon: 'Crown' };
   }
   if (points >= 1500 || level?.includes('قائد')) {
@@ -127,7 +127,7 @@ export function getRankBadge(points: number, level?: string | null) {
   if (points >= 700 || level?.includes('متميز')) {
     return { title: 'متطوع ماسي مبادر', badgeBg: 'bg-sky-600 text-white', icon: 'Award' };
   }
-  if (points >= 300 || level?.includes('ملتزم')) {
+  if (points >= 300 || level?.includes('فعال')) {
     return { title: 'متطوع ذهبي ملتزم', badgeBg: 'bg-emerald-600 text-white', icon: 'Star' };
   }
   return { title: 'عضو واعد', badgeBg: 'bg-blue-600 text-white', icon: 'Heart' };

@@ -184,7 +184,7 @@ export async function PUT(
               phone: application.phone,
               searchText: buildUserSearchText({ ...merged, phone: application.phone, volunteerCode: volCode }),
               status: 'ACTIVE',
-              level: 'متطوع جديد',
+              level: 'مبتدئ',
               teamName: 'فريق الإغاثة الميدانية',
               passwordHash: passwordHash!,
               mustChangePassword: true,

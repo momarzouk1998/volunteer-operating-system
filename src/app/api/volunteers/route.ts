@@ -168,7 +168,7 @@ export async function POST(request: Request) {
         skills: skills || null,
         preferredFields: preferredFields || null,
         teamName: teamName || 'فريق الإغاثة الميدانية',
-        level: level || 'متطوع جديد',
+        level: level || 'مبتدئ',
         status: status || 'ACTIVE',
         notes: notes || null,
         passwordHash,

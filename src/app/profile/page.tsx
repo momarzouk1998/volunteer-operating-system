@@ -233,7 +233,7 @@ export default function ProfilePage() {
               </p>
               <div className="flex flex-wrap items-center gap-1.5 pt-1">
                 <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${rank.badgeBg}`}>👑 {rank.title}</span>
-                <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-bold">{v.level || 'متطوع جديد'}</span>
+                <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-bold">{v.level || 'مبتدئ'}</span>
                 <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold">{v.teamName || 'بدون فريق'}</span>
               </div>
             </div>
