@@ -39,6 +39,10 @@ export async function sendEmail(mail: Mail): Promise<{ ok: boolean; reason?: str
       port: Number(process.env.SMTP_PORT || 587),
       secure: Number(process.env.SMTP_PORT) === 465,
       auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+      // فشل سريع بدل تعليق الطلب دقائق لو بورت SMTP محجوب على مستوى الشبكة
+      connectionTimeout: 8000,
+      greetingTimeout: 5000,
+      socketTimeout: 8000,
     });
     await transport.sendMail({
       from: process.env.SMTP_FROM || process.env.SMTP_USER,
@@ -50,6 +54,17 @@ export async function sendEmail(mail: Mail): Promise<{ ok: boolean; reason?: str
     return { ok: true };
   } catch (err: any) {
     console.error('sendEmail failed:', err);
+    // سجّل المحاولة الفاشلة أيضاً (شبكة/مصادقة) حتى لا تختفي بصمت
+    try {
+      await prisma.auditLog.create({
+        data: {
+          action: 'EMAIL_FAILED',
+          entity: 'Email',
+          userName: 'النظام',
+          details: `[فشل الإرسال] إلى ${mail.to} • ${mail.subject} • ${String(err?.message || err)}`,
+        },
+      });
+    } catch { /* ignore */ }
     return { ok: false, reason: String(err?.message || err) };
   }
 }
