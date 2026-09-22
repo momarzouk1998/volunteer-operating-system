@@ -135,8 +135,10 @@ export async function POST(request: Request) {
     }
 
     // توليد كود المتطوع KAS-XXXXX
+    // ملاحظة: 'KAS-0' وليس 'KAS-' فقط — أكواد إدارية خاصة زي KAS-ADM0x بترتّب أبجدياً
+    // أعلى من أي رقم (A > 0) فتفسد آخر رقم مُستخدَم لو استخدمنا البادئة الأعم
     const lastUser = await prisma.user.findFirst({
-      where: { volunteerCode: { startsWith: 'KAS-' } },
+      where: { volunteerCode: { startsWith: 'KAS-0' } },
       orderBy: { volunteerCode: 'desc' },
     });
 

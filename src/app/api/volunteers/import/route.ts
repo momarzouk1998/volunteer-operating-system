@@ -45,8 +45,9 @@ export async function POST(request: Request) {
     const validLevelsSet = new Set(validLevels);
 
     // نبدأ ترقيم أكواد KAS من آخر كود مستخدَم فعلياً
+    // 'KAS-0' وليس 'KAS-' فقط — لتفادي أكواد إدارية خاصة زي KAS-ADM0x (A > 0 أبجدياً)
     const lastUser = await prisma.user.findFirst({
-      where: { volunteerCode: { startsWith: 'KAS-' } },
+      where: { volunteerCode: { startsWith: 'KAS-0' } },
       orderBy: { volunteerCode: 'desc' },
     });
     let nextNum = 1;
