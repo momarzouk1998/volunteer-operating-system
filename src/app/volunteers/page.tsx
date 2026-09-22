@@ -14,6 +14,8 @@ import {
   Trophy,
   ChevronLeft,
   Download,
+  Upload,
+  FileSpreadsheet,
   X,
   CheckCircle,
   Eye,
@@ -40,6 +42,65 @@ export default function VolunteersPage() {
   const [modalLoading, setModalLoading] = useState(false);
   const [modalError, setModalError] = useState('');
   const [modalSuccess, setModalSuccess] = useState('');
+
+  // استيراد المتطوعين من Excel
+  const importInputRef = React.useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+  const [importResults, setImportResults] = useState<any[] | null>(null);
+
+  const IMPORT_HEADERS = ['الاسم رباعي', 'الرقم القومي (14 رقم)', 'رقم الهاتف', 'المحافظة', 'المركز / المدينة', 'الفريق / اللجنة المسكن عليها', 'المستوى التطوعي', 'المهارات والخبرات السابقة'];
+
+  const handleDownloadTemplate = () => {
+    const ws = XLSX.utils.aoa_to_sheet([
+      IMPORT_HEADERS,
+      ['أحمد محمد علي عبدالله', '29912011234567', '01055512340', 'القاهرة', 'مدينة نصر', 'فريق الإغاثة الميدانية', 'مبتدئ', 'تنظيم، تصوير'],
+    ]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'قالب الاستيراد');
+    XLSX.writeFile(wb, 'قالب_استيراد_المتطوعين_VOS.xlsx');
+  };
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    setImportResults(null);
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array' });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const raw: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+      const rows = raw.map((r) => ({
+        name: r['الاسم رباعي'],
+        nationalId: r['الرقم القومي (14 رقم)'] ? String(r['الرقم القومي (14 رقم)']).replace(/\D/g, '') : '',
+        phone: r['رقم الهاتف'] ? String(r['رقم الهاتف']).replace(/\D/g, '') : '',
+        governorate: r['المحافظة'],
+        city: r['المركز / المدينة'],
+        teamName: r['الفريق / اللجنة المسكن عليها'],
+        level: r['المستوى التطوعي'],
+        skills: r['المهارات والخبرات السابقة'],
+      }));
+      if (!rows.length) {
+        toast('الملف فارغ أو بصيغة غير متوقعة', 'error');
+        return;
+      }
+      const res = await fetch('/api/volunteers/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'فشل الاستيراد');
+      toast(data.message, data.createdCount > 0 ? 'success' : 'error');
+      setImportResults(data.results);
+      fetchVolunteers();
+    } catch (err: any) {
+      toast(err.message || 'تعذّرت قراءة الملف', 'error');
+    } finally {
+      setImporting(false);
+      if (importInputRef.current) importInputRef.current.value = '';
+    }
+  };
 
   // Form State
   const [formData, setFormData] = useState({
@@ -170,7 +231,23 @@ export default function VolunteersPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            onClick={handleDownloadTemplate}
+            className="px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-slate-500" />
+            <span>قالب الاستيراد</span>
+          </button>
+          <button
+            onClick={() => importInputRef.current?.click()}
+            disabled={importing}
+            className="px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors disabled:opacity-50"
+          >
+            <Upload className="w-4 h-4 text-slate-500" />
+            <span>{importing ? 'جاري الاستيراد...' : 'استيراد من Excel'}</span>
+          </button>
+          <input ref={importInputRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleImportFile} className="hidden" />
           <button
             onClick={handleExportExcel}
             className="px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors"
@@ -187,6 +264,29 @@ export default function VolunteersPage() {
           </button>
         </div>
       </div>
+
+      {importResults && (
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-xs p-4 sm:p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-extrabold text-slate-900">نتيجة آخر عملية استيراد</h3>
+            <button onClick={() => setImportResults(null)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="max-h-64 overflow-y-auto divide-y divide-slate-100 text-xs">
+            {importResults.map((r: any, i: number) => (
+              <div key={i} className="py-2 flex items-center justify-between gap-2">
+                <span className="text-slate-500">صف {r.row}</span>
+                {r.status === 'created' ? (
+                  <span className="text-emerald-700 font-bold flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5" /> تم — {r.code}</span>
+                ) : (
+                  <span className="text-rose-600 font-bold">تخطّي — {r.reason}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Filter & Search Bar */}
       <div className="bg-white rounded-3xl p-4 border border-slate-200 shadow-xs space-y-3">
