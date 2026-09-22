@@ -55,8 +55,24 @@ export default function VolunteersPage() {
       IMPORT_HEADERS,
       ['أحمد محمد علي عبدالله', '29912011234567', '01055512340', 'القاهرة', 'مدينة نصر', 'فريق الإغاثة الميدانية', 'مبتدئ', 'تنظيم، تصوير'],
     ]);
+    ws['!cols'] = IMPORT_HEADERS.map(() => ({ wch: 26 }));
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'قالب الاستيراد');
+
+    // ورقة ثانية بالقيم الصحيحة المسموح بها — انسخ منها بدل الكتابة اليدوية لمنع أي خطأ إملائي
+    const govs = lists.governorates.length ? lists.governorates : governoratesList.filter((g) => g !== 'الكل');
+    const teams = lists.teams.length ? lists.teams : teamsList.filter((t) => t !== 'الكل');
+    const levels = lists.levels.length ? lists.levels : ['مبتدئ', 'فعال', 'متميز', 'قائد فريق', 'سفير الجمعية'];
+    const maxLen = Math.max(govs.length, teams.length, levels.length);
+    const refRows = [['المحافظات المتاحة', 'الفرق المتاحة', 'المستويات المتاحة']];
+    for (let i = 0; i < maxLen; i++) {
+      refRows.push([govs[i] || '', teams[i] || '', levels[i] || '']);
+    }
+    const wsRef = XLSX.utils.aoa_to_sheet(refRows);
+    wsRef['!cols'] = [{ wch: 22 }, { wch: 30 }, { wch: 20 }];
+    XLSX.utils.book_append_sheet(wb, wsRef, 'القيم المسموح بها');
+
     XLSX.writeFile(wb, 'قالب_استيراد_المتطوعين_VOS.xlsx');
   };
 

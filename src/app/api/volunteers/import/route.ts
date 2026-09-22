@@ -4,6 +4,7 @@ import { hashPassword, normalizePhone, requireRole } from '@/lib/auth';
 import { buildUserSearchText } from '@/lib/format';
 import { encryptPII, hashPII } from '@/lib/crypto';
 import { NATIONAL_ID_RE } from '@/lib/egypt';
+import { getList } from '@/lib/lists';
 
 // استيراد جماعي للمتطوعين من ملف Excel — نفس ترتيب حقول فورم «تسجيل متطوع جديد» بالظبط:
 // الاسم رباعي* | الرقم القومي | رقم الهاتف* | المحافظة* | المركز/المدينة | الفريق | المستوى التطوعي | المهارات
@@ -33,6 +34,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'الحد الأقصى 1000 صف في المرة الواحدة' }, { status: 400 });
     }
 
+    // القيم المسموح بها فعلياً — لرفض أي محافظة/فريق/مستوى غير معروف بدل قبوله كنص حر
+    const [govRows, teamRows, validLevels] = await Promise.all([
+      prisma.governorate.findMany({ select: { name: true } }),
+      prisma.team.findMany({ select: { name: true } }),
+      getList('LIST_LEVELS'),
+    ]);
+    const validGovs = new Set(govRows.map((g) => g.name));
+    const validTeams = new Set(teamRows.map((t) => t.name));
+    const validLevelsSet = new Set(validLevels);
+
     // نبدأ ترقيم أكواد KAS من آخر كود مستخدَم فعلياً
     const lastUser = await prisma.user.findFirst({
       where: { volunteerCode: { startsWith: 'KAS-' } },
@@ -58,6 +69,20 @@ export async function POST(request: Request) {
           results.push({ row: rowNum, status: 'skipped', reason: 'الاسم/الهاتف/المحافظة حقول إجبارية' });
           continue;
         }
+        if (!validGovs.has(governorate)) {
+          results.push({ row: rowNum, status: 'skipped', reason: `محافظة غير معروفة: «${governorate}» — راجع ورقة «القيم المسموح بها»` });
+          continue;
+        }
+        const teamNameRaw = String(r.teamName || '').trim();
+        if (teamNameRaw && !validTeams.has(teamNameRaw)) {
+          results.push({ row: rowNum, status: 'skipped', reason: `فريق غير معروف: «${teamNameRaw}» — راجع ورقة «القيم المسموح بها»` });
+          continue;
+        }
+        const levelRaw = String(r.level || '').trim();
+        if (levelRaw && !validLevelsSet.has(levelRaw)) {
+          results.push({ row: rowNum, status: 'skipped', reason: `مستوى غير معروف: «${levelRaw}» — راجع ورقة «القيم المسموح بها»` });
+          continue;
+        }
 
         const cleanPhone = normalizePhone(phoneRaw);
         const nationalId = String(r.nationalId || '').trim();
@@ -78,8 +103,8 @@ export async function POST(request: Request) {
         const volCode = `KAS-${String(nextNum).padStart(5, '0')}`;
         nextNum++;
 
-        const teamName = String(r.teamName || '').trim() || 'فريق الإغاثة الميدانية';
-        const level = String(r.level || '').trim() || 'مبتدئ';
+        const teamName = teamNameRaw || 'فريق الإغاثة الميدانية';
+        const level = levelRaw || 'مبتدئ';
         const city = String(r.city || '').trim() || null;
         const skills = String(r.skills || '').trim() || null;
 
