@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { Cairo } from 'next/font/google';
 import { getCurrentUser } from '@/lib/auth';
 import AppLayout from '@/components/AppLayout';
+import UpdateBanner from '@/components/UpdateBanner';
 
 const cairo = Cairo({
   subsets: ['arabic', 'latin'],
@@ -29,6 +30,7 @@ export default async function RootLayout({
   return (
     <html lang="ar" dir="rtl" className={cairo.variable}>
       <body className="font-cairo min-h-screen">
+        <UpdateBanner />
         <AppLayout currentUser={currentUser}>
           {children}
         </AppLayout>

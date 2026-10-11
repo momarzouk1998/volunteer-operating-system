@@ -59,7 +59,7 @@ jobs:
             docker pull ghcr.io/${{ github.repository }}:latest
             docker stop volunteer-os || true
             docker rm volunteer-os || true
-            docker run -d --name volunteer-os --restart unless-stopped \
+            docker run -d --name volunteer-os --restart unless-stopped --memory 700m --memory-swap 1g -e NODE_OPTIONS=--max-old-space-size=512 \
               --network host \
               -e PORT=3060 \
               -e DATABASE_URL="postgresql://vos_user:Vos2026!SecureDb@localhost:5432/vos_db?schema=public" \
