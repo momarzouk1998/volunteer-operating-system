@@ -15,6 +15,9 @@ COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npx prisma generate
+# رقم نسخة ثابت لكل build (نفس القيمة للسيرفر والمتصفح) — شريط "تم تحديث النظام"
+ARG BUILD_ID=dev
+ENV BUILD_ID=$BUILD_ID
 RUN npm run build
 
 FROM base AS runner

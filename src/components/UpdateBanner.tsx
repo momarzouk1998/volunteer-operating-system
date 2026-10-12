@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /** بيبلّغ الشاشة المفتوحة إن النظام بيتحدث، وبعدين إن فيه نسخة أحدث ولازم Refresh.
  *  بيسأل /api/version كل دقيقة لما الشاشة ظاهرة + لما الموظف يرجع للشاشة — طلب واحد
@@ -9,6 +9,7 @@ const DOWN = [502, 503, 504, 520, 521, 522, 523, 524];
 
 export default function UpdateBanner() {
   const [state, setState] = useState<null | 'updating' | 'updated'>(null);
+  const serverBuild = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -28,7 +29,14 @@ export default function UpdateBanner() {
         if (!res.ok) return;
         const d = await res.json();
         if (cancelled) return;
-        if (d.buildId && mine && d.buildId !== mine) setState('updated');
+        if (d.buildId && mine && d.buildId !== mine) {
+          // لو المستخدم عمل Refresh للنسخة دى بالفعل وماحصلش تطابق، مانعرضش الشريط تانى
+          // (حماية لو رقم الصفحة والسيرفر اختلفوا لأى سبب — الشريط مايفضلش ثابت).
+          let reloadedFor: string | null = null;
+          try { reloadedFor = sessionStorage.getItem('app-reloaded-for'); } catch { /* ignore */ }
+          if (reloadedFor === d.buildId) setState((s) => (s === 'updating' ? null : s));
+          else { serverBuild.current = d.buildId; setState('updated'); }
+        }
         else setState((s) => (s === 'updating' ? null : s));
       } catch {
         /* مفيش نت — سيب اللى ظاهر */
@@ -65,7 +73,10 @@ export default function UpdateBanner() {
           <span>✅ تم تحديث النظام — اعمل تحديث للصفحة عشان تشتغل على النسخة الجديدة</span>
           <button
             type="button"
-            onClick={() => window.location.reload()}
+            onClick={() => {
+              try { if (serverBuild.current) sessionStorage.setItem('app-reloaded-for', serverBuild.current); } catch { /* ignore */ }
+              window.location.reload();
+            }}
             className="rounded-lg bg-white px-3 py-1 font-black text-emerald-700 hover:bg-emerald-50"
           >
             تحديث الصفحة
